@@ -119,7 +119,7 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, categories, onSa
         const doTranslate = async () => {
           setIsTranslating(true);
           try {
-            const { translateRecipe } = await import('../services/geminiService');
+            const { translateRecipe } = await import('../services/geminiServices');
             const translated = await translateRecipe(fallbackContent, language);
             if (translated) {
               setContent(translated);
