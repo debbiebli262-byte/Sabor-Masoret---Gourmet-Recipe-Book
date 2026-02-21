@@ -8,7 +8,7 @@ import RecipeView from './components/RecipeView';
 import CategoryManager from './components/CategoryManager';
 import ScrollToTop from './components/ScrollToTop';
 import { INITIAL_RECIPES } from './seedData';
-import { importRecipeFromUrl, generateRecipeImage } from './services/geminiService';
+import { importRecipeFromUrl, generateRecipeImage } from './services/geminiServices';
 
 type SortOption = 'newest' | 'oldest' | 'alphabetical';
 
