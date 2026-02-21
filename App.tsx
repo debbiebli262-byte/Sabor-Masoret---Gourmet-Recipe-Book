@@ -25,7 +25,7 @@ const RecipeCard = React.memo(({ recipe, language, onClick, categories, onUpdate
       const doTranslate = async () => {
         setIsTranslating(true);
         try {
-          const { translateRecipe } = await import('./services/geminiService');
+          const { translateRecipe } = await import('./services/geminiServices');
           const translated = await translateRecipe(fallbackContent, language);
           if (translated) {
             onUpdate({ ...recipe, [language]: translated });
