@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Recipe, Language, RecipeContent, Ingredient, PrepStep, Unit, Category } from '../types';
 import { UI_STRINGS, UNITS } from '../constants';
-import { generateRecipeImage } from '../services/geminiService';
+import { generateRecipeImage } from '../services/geminiServices';
 
 interface Props {
   language: Language;
