@@ -1,0 +1,7 @@
+{
+  "name": "Sabor & Masoret - Gourmet Recipe Book",
+  "description": "A professional bilingual (Hebrew & Spanish) recipe management system with AI image generation, automated translation, and PDF exporting.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
