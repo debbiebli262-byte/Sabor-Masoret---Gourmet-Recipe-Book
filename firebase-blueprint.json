@@ -1,0 +1,80 @@
+{
+  "entities": {
+    "Recipe": {
+      "title": "Recipe",
+      "description": "A gourmet recipe created by a user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "image": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "categoryId": { "type": "string" },
+        "he": { "$ref": "RecipeContent" },
+        "es": { "$ref": "RecipeContent" },
+        "userId": { "type": "string" }
+      },
+      "required": ["id", "createdAt", "userId"]
+    },
+    "RecipeContent": {
+      "title": "RecipeContent",
+      "description": "Content of a recipe in a specific language",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "ingredients": {
+          "type": "array",
+          "items": { "$ref": "Ingredient" }
+        },
+        "instructions": {
+          "type": "array",
+          "items": { "$ref": "PrepStep" }
+        },
+        "notes": { "type": "string" },
+        "ovenInstructions": { "type": "string" }
+      }
+    },
+    "Ingredient": {
+      "title": "Ingredient",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "amount": { "type": "number" },
+        "unit": { "type": "string" },
+        "category": { "type": "string" }
+      }
+    },
+    "PrepStep": {
+      "title": "PrepStep",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "category": { "type": "string" }
+      }
+    },
+    "Category": {
+      "title": "Category",
+      "description": "A recipe category",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "he": { "type": "string" },
+        "es": { "type": "string" },
+        "userId": { "type": "string" }
+      },
+      "required": ["id", "he", "es"]
+    }
+  },
+  "firestore": {
+    "users/{userId}/recipes/{recipeId}": {
+      "schema": "Recipe",
+      "description": "User's private recipes"
+    },
+    "users/{userId}/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "User's custom categories"
+    }
+  }
+}

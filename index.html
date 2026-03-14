@@ -1,0 +1,92 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sabor & Masoret | L'Art de la Cuisine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Inter:wght@300;400;500;600&family=Heebo:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bone: #FAF9F6;
+            --beige: #F5F5F0;
+            --charcoal: #1C1C1C;
+            --gold: #8B7355;
+            --border: rgba(28, 28, 28, 0.1);
+        }
+        body {
+            font-family: 'Inter', 'Heebo', sans-serif;
+            background-color: var(--bone);
+            color: var(--charcoal);
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        .serif {
+            font-family: 'Playfair Display', serif;
+        }
+        .rtl { direction: rtl; }
+        .ltr { direction: ltr; }
+        
+        /* Smooth buttery transitions with GPU acceleration */
+        * {
+            transition: background-color 0.3s ease, border-color 0.3s ease, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* Hardware acceleration hints */
+        .will-change-transform {
+            will-change: transform;
+            backface-visibility: hidden;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bone); }
+        ::-webkit-scrollbar-thumb { background: #dcdcd4; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #c2c2b5; }
+
+        /* French Cuisine Aesthetic Flourishes */
+        .premium-border {
+            border: 0.5px solid var(--border);
+        }
+        .flourish-line {
+            height: 1px;
+            background: linear-gradient(to right, transparent, var(--gold), transparent);
+            width: 100%;
+            margin: 2rem 0;
+            opacity: 0.4;
+        }
+        .glass-header {
+            background: rgba(250, 249, 246, 0.85);
+            backdrop-filter: blur(12px);
+            border-bottom: 0.5px solid var(--border);
+            will-change: transform;
+        }
+        
+        /* Optimize animations for large lists */
+        .animate-in {
+            animation-duration: 0.5s !important;
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "react": "https://esm.sh/react@^19.2.4",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.42.0",
+    "jspdf": "https://esm.sh/jspdf@2.5.1",
+    "html2canvas": "https://esm.sh/html2canvas@^1.4.1"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body>
+    <div id="root"></div>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>
