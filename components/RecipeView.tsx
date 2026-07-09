@@ -16,33 +16,8 @@ interface Props {
 const RecipeView: React.FC<Props> = ({ recipe, language, onUpdate, onEdit, onDelete }) => {
   const t = UI_STRINGS[language];
   const content = recipe[language];
-  const [isTranslating, setIsTranslating] = useState(false);
   const [isGeneratingImg, setIsGeneratingImg] = useState(false);
   const [scale, setScale] = useState<number>(1);
-
-  useEffect(() => {
-    let isMounted = true;
-    const handleTranslation = async () => {
-      if (!content && !isTranslating) {
-        setIsTranslating(true);
-        const sourceLang = language === Language.HE ? Language.ES : Language.HE;
-        const sourceContent = recipe[sourceLang];
-        if (sourceContent) {
-          try {
-            const translated = await translateRecipe(sourceContent, language);
-            if (translated && isMounted) {
-              onUpdate({ ...recipe, [language]: translated });
-            }
-          } catch (err) {
-            console.error("Translation effect failed:", err);
-          }
-        }
-        if (isMounted) setIsTranslating(false);
-      }
-    };
-    handleTranslation();
-    return () => { isMounted = false; };
-  }, [language, content, recipe, isTranslating, onUpdate]);
 
   const handleAiGen = async (e?: React.MouseEvent) => {
     if (e) {
@@ -77,11 +52,10 @@ const RecipeView: React.FC<Props> = ({ recipe, language, onUpdate, onEdit, onDel
     return Math.round(scaled * 100) / 100;
   };
 
-  if (isTranslating || !content) {
+  if (!content) {
     return (
       <div className="flex flex-col items-center justify-center py-40">
         <div className="w-8 h-8 border-[1px] border-[#1C1C1C] border-t-transparent rounded-full animate-spin mb-6"></div>
-        <p className="text-[#1C1C1C]/40 text-[10px] uppercase tracking-[0.3em] font-bold">{t.translateLoading}</p>
       </div>
     );
   }
@@ -120,7 +94,7 @@ const RecipeView: React.FC<Props> = ({ recipe, language, onUpdate, onEdit, onDel
               disabled={isGeneratingImg}
               className="text-[#1C1C1C]/30 text-[10px] uppercase tracking-[0.5em] font-bold border-b border-[#1C1C1C]/10 pb-2 hover:text-[#1C1C1C] transition-all"
             >
-              {isGeneratingImg ? 'Création...' : 'Générer Visuel'}
+              {isGeneratingImg ? 'מייצר...' : 'צור תמונה ב-AI'}
             </button>
           </div>
         )}
@@ -165,7 +139,7 @@ const RecipeView: React.FC<Props> = ({ recipe, language, onUpdate, onEdit, onDel
         <div className="absolute inset-0 bg-gradient-to-t from-[#1C1C1C]/70 via-transparent to-transparent pointer-events-none"></div>
         
         <div className="absolute bottom-10 left-10 right-10 pointer-events-none">
-          <span className="text-[9px] uppercase tracking-[0.5em] text-white/70 font-bold mb-2 block">Recette Signature</span>
+          <span className="text-[9px] uppercase tracking-[0.5em] text-white/70 font-bold mb-2 block">מתכון נבחר</span>
           <h1 className="serif text-4xl md:text-6xl text-white font-light tracking-tight leading-none">{content.title}</h1>
           <div className="w-16 h-[1px] bg-white/40 mt-4"></div>
         </div>
