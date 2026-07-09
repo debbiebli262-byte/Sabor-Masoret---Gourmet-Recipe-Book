@@ -2,7 +2,7 @@
   "entities": {
     "Recipe": {
       "title": "Recipe",
-      "description": "A gourmet recipe created by a user",
+      "description": "A gourmet recipe shared by everyone",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
@@ -10,10 +10,9 @@
         "createdAt": { "type": "number" },
         "categoryId": { "type": "string" },
         "he": { "$ref": "RecipeContent" },
-        "es": { "$ref": "RecipeContent" },
-        "userId": { "type": "string" }
+        "es": { "$ref": "RecipeContent" }
       },
-      "required": ["id", "createdAt", "userId"]
+      "required": ["id", "createdAt"]
     },
     "RecipeContent": {
       "title": "RecipeContent",
@@ -56,25 +55,24 @@
     },
     "Category": {
       "title": "Category",
-      "description": "A recipe category",
+      "description": "A shared recipe category",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
         "he": { "type": "string" },
-        "es": { "type": "string" },
-        "userId": { "type": "string" }
+        "es": { "type": "string" }
       },
       "required": ["id", "he", "es"]
     }
   },
   "firestore": {
-    "users/{userId}/recipes/{recipeId}": {
+    "recipes/{recipeId}": {
       "schema": "Recipe",
-      "description": "User's private recipes"
+      "description": "Shared recipes"
     },
-    "users/{userId}/categories/{categoryId}": {
+    "categories/{categoryId}": {
       "schema": "Category",
-      "description": "User's custom categories"
+      "description": "Shared custom categories"
     }
   }
 }
