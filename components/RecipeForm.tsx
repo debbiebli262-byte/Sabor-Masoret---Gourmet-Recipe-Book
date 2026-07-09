@@ -99,14 +99,10 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, categories, onSa
   // Quick category adding state
   const [isAddingQuickCategory, setIsAddingQuickCategory] = useState(false);
   const [quickCatHe, setQuickCatHe] = useState('');
-  const [quickCatEs, setQuickCatEs] = useState('');
-
-  const [isTranslating, setIsTranslating] = useState(false);
 
   useEffect(() => {
     if (initialRecipe) {
-      const existingContent = initialRecipe[language];
-      const fallbackContent = initialRecipe[language === Language.HE ? Language.ES : Language.HE];
+      const existingContent = initialRecipe[Language.HE];
       
       if (existingContent) {
         setContent({
@@ -114,32 +110,12 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, categories, onSa
           ingredients: existingContent.ingredients || [],
           instructions: existingContent.instructions || []
         });
-      } else if (fallbackContent && !isTranslating) {
-        // Trigger translation for the form
-        const doTranslate = async () => {
-          setIsTranslating(true);
-          try {
-            const { translateRecipe } = await import('../services/geminiService');
-            const translated = await translateRecipe(fallbackContent, language);
-            if (translated) {
-              setContent(translated);
-            } else {
-              // Fallback to untranslated if AI fails
-              setContent(fallbackContent);
-            }
-          } catch (e) {
-            setContent(fallbackContent);
-          } finally {
-            setIsTranslating(false);
-          }
-        };
-        doTranslate();
       }
       
       if (initialRecipe.image) setImage(initialRecipe.image);
       if (initialRecipe.categoryId) setCategoryId(initialRecipe.categoryId);
     }
-  }, [initialRecipe, language, isTranslating]);
+  }, [initialRecipe]);
 
   const addIngredient = () => {
     const newIng: Ingredient = {
@@ -202,29 +178,21 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, categories, onSa
   };
 
   const handleQuickAddCategory = () => {
-    if (quickCatHe.trim() && quickCatEs.trim()) {
+    if (quickCatHe.trim()) {
       const newCat = onAddCategory({
-        [Language.HE]: quickCatHe,
-        [Language.ES]: quickCatEs
+        [Language.HE]: quickCatHe
       });
       setCategoryId(newCat.id);
       setIsAddingQuickCategory(false);
       setQuickCatHe('');
-      setQuickCatEs('');
     }
   };
 
   return (
     <div className="bg-white p-8 md:p-16 border-[0.5px] border-[#1C1C1C]/10 shadow-2xl max-w-5xl mx-auto animate-in fade-in duration-700 relative">
-      {isTranslating && (
-        <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-[100] flex flex-col items-center justify-center">
-          <div className="w-10 h-10 border-2 border-[#1C1C1C] border-t-transparent rounded-full animate-spin mb-4"></div>
-          <p className="text-[10px] uppercase tracking-[0.3em] font-bold text-[#1C1C1C]">{t.translateLoading}</p>
-        </div>
-      )}
       <div className="text-center mb-16">
         <h2 className="serif text-4xl font-light text-[#1C1C1C] mb-4 uppercase tracking-tighter">
-          {initialRecipe ? (language === Language.HE ? 'עריכת מתכון' : 'Édition de Recette') : (language === Language.HE ? 'מתכון חדש' : 'Nouvelle Création')}
+          {initialRecipe ? 'עריכת מתכון' : 'מתכון חדש'}
         </h2>
         <div className="w-16 h-[1px] bg-[#8B7355] mx-auto"></div>
       </div>
@@ -251,24 +219,18 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, categories, onSa
                   onClick={() => setIsAddingQuickCategory(!isAddingQuickCategory)}
                   className="text-[#8B7355] hover:text-[#1C1C1C] text-[9px] font-bold uppercase tracking-widest transition-colors"
                 >
-                  {isAddingQuickCategory ? '-' : '+ ' + (language === Language.HE ? 'הוסף קטגוריה חדשה' : 'Añadir Nueva')}
+                  {isAddingQuickCategory ? '-' : '+ הוסף קטגוריה חדשה'}
                 </button>
               </div>
 
               {isAddingQuickCategory ? (
                 <div className="bg-[#F5F5F0] p-4 space-y-3 animate-in slide-in-from-top-2 duration-300 border border-[#8B7355]/20">
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 gap-2">
                     <input 
                       className="bg-white p-2 text-[10px] outline-none border border-transparent focus:border-[#8B7355]/30" 
                       placeholder={t.categoryNameHe} 
                       value={quickCatHe} 
                       onChange={e => setQuickCatHe(e.target.value)} 
-                    />
-                    <input 
-                      className="bg-white p-2 text-[10px] outline-none border border-transparent focus:border-[#8B7355]/30" 
-                      placeholder={t.categoryNameEs} 
-                      value={quickCatEs} 
-                      onChange={e => setQuickCatEs(e.target.value)} 
                     />
                   </div>
                   <div className="flex gap-2">
@@ -313,7 +275,7 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, categories, onSa
           </div>
 
           <div className="space-y-6">
-             <label className="text-[10px] uppercase tracking-[0.4em] text-[#1C1C1C]/40 font-bold block mb-3">{language === Language.HE ? 'ויזואליה של המנה' : 'Visuel Signature'}</label>
+             <label className="text-[10px] uppercase tracking-[0.4em] text-[#1C1C1C]/40 font-bold block mb-3">ויזואליה של המנה</label>
              <div className="bg-[#F5F5F0] p-6 space-y-4">
                 <input
                   type="text"
