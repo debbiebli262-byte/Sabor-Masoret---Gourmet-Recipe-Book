@@ -15,14 +15,12 @@ interface Props {
 const CategoryManager: React.FC<Props> = ({ categories, language, onAdd, onUpdate, onDelete, onClose }) => {
   const t = UI_STRINGS[language];
   const [newCatHe, setNewCatHe] = useState('');
-  const [newCatEs, setNewCatEs] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const handleAdd = () => {
-    if (newCatHe.trim() && newCatEs.trim()) {
-      onAdd({ [Language.HE]: newCatHe, [Language.ES]: newCatEs });
+    if (newCatHe.trim()) {
+      onAdd({ [Language.HE]: newCatHe });
       setNewCatHe('');
-      setNewCatEs('');
     }
   };
 
@@ -36,24 +34,18 @@ const CategoryManager: React.FC<Props> = ({ categories, language, onAdd, onUpdat
 
         <div className="p-8 max-h-[60vh] overflow-y-auto space-y-6">
           {/* Add New */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[#F5F5F0] p-6">
+          <div className="grid grid-cols-1 gap-4 bg-[#F5F5F0] p-6">
             <input 
               className="bg-white p-3 text-xs outline-none" 
               placeholder={t.categoryNameHe} 
               value={newCatHe} 
               onChange={e => setNewCatHe(e.target.value)} 
             />
-            <input 
-              className="bg-white p-3 text-xs outline-none" 
-              placeholder={t.categoryNameEs} 
-              value={newCatEs} 
-              onChange={e => setNewCatEs(e.target.value)} 
-            />
             <button 
               onClick={handleAdd}
-              className="md:col-span-2 bg-[#1C1C1C] text-white py-3 text-[10px] font-bold uppercase tracking-widest hover:bg-[#8B7355] transition-all"
+              className="bg-[#1C1C1C] text-white py-3 text-[10px] font-bold uppercase tracking-widest hover:bg-[#8B7355] transition-all"
             >
-              + {language === Language.HE ? 'הוסף קטגוריה' : 'Añadir Categoría'}
+              + הוסף קטגוריה
             </button>
           </div>
 
@@ -62,22 +54,16 @@ const CategoryManager: React.FC<Props> = ({ categories, language, onAdd, onUpdat
             {categories.map(cat => (
               <div key={cat.id} className="group border-[0.5px] border-[#1C1C1C]/10 p-4 flex justify-between items-center hover:bg-[#F5F5F0] transition-colors">
                 {editingId === cat.id ? (
-                  <div className="flex-1 grid grid-cols-2 gap-2 mr-4">
+                  <div className="flex-1 mr-4">
                     <input 
-                      className="p-2 text-xs border border-[#1C1C1C]/10" 
+                      className="w-full p-2 text-xs border border-[#1C1C1C]/10" 
                       value={cat[Language.HE]} 
                       onChange={e => onUpdate({ ...cat, [Language.HE]: e.target.value })} 
-                    />
-                    <input 
-                      className="p-2 text-xs border border-[#1C1C1C]/10" 
-                      value={cat[Language.ES]} 
-                      onChange={e => onUpdate({ ...cat, [Language.ES]: e.target.value })} 
                     />
                   </div>
                 ) : (
                   <div className="flex flex-col">
                     <span className="text-xs font-bold text-[#1C1C1C]">{cat[Language.HE]}</span>
-                    <span className="text-[10px] italic text-[#1C1C1C]/40">{cat[Language.ES]}</span>
                   </div>
                 )}
                 
@@ -86,7 +72,7 @@ const CategoryManager: React.FC<Props> = ({ categories, language, onAdd, onUpdat
                     onClick={() => setEditingId(editingId === cat.id ? null : cat.id)}
                     className="text-[#1C1C1C]/30 hover:text-[#8B7355] text-[10px] font-bold uppercase tracking-widest"
                   >
-                    {editingId === cat.id ? 'OK' : (language === Language.HE ? 'ערוך' : 'Editar')}
+                    {editingId === cat.id ? 'OK' : 'ערוך'}
                   </button>
                   <button 
                     onClick={() => onDelete(cat.id)}
