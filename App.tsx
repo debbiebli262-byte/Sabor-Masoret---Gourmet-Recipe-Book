@@ -2,58 +2,30 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Recipe, Language, RecipeContent, Category } from './types';
 import { UI_STRINGS, DEFAULT_CATEGORIES } from './constants';
-import LanguageToggle from './components/LanguageToggle';
 import RecipeForm from './components/RecipeForm';
 import RecipeView from './components/RecipeView';
 import CategoryManager from './components/CategoryManager';
 import ScrollToTop from './components/ScrollToTop';
 import { INITIAL_RECIPES } from './seedData';
 import { importRecipeFromUrl, generateRecipeImage } from './services/geminiService';
-import { auth, db } from './firebase';
-import { onAuthStateChanged, signOut, User } from 'firebase/auth';
+import { db } from './firebase';
 import { 
   collection, 
   onSnapshot, 
   query, 
-  where, 
   doc, 
   setDoc, 
   deleteDoc, 
   addDoc,
-  serverTimestamp,
   orderBy
 } from 'firebase/firestore';
-import Auth from './components/Auth';
 
 type SortOption = 'newest' | 'oldest' | 'alphabetical';
 
 const RecipeCard = React.memo(({ recipe, language, onClick, categories, onUpdate }: { recipe: Recipe, language: Language, onClick: () => void, categories: Category[], onUpdate: (r: Recipe) => void }) => {
   const content = recipe[language];
-  const fallbackContent = recipe[language === Language.HE ? Language.ES : Language.HE];
-  const displayContent = content || fallbackContent;
   const category = categories.find(c => c.id === recipe.categoryId);
   const catLabel = category ? category[language] : UI_STRINGS[language].uncategorized;
-  const [isTranslating, setIsTranslating] = useState(false);
-
-  useEffect(() => {
-    if (!content && fallbackContent && !isTranslating) {
-      const doTranslate = async () => {
-        setIsTranslating(true);
-        try {
-          const { translateRecipe } = await import('./services/geminiService');
-          const translated = await translateRecipe(fallbackContent, language);
-          if (translated) {
-            onUpdate({ ...recipe, [language]: translated });
-          }
-        } catch (e) {
-          console.error("Card translation failed", e);
-        } finally {
-          setIsTranslating(false);
-        }
-      };
-      doTranslate();
-    }
-  }, [language, content, fallbackContent, isTranslating, onUpdate, recipe]);
 
   return (
     <div onClick={onClick} className="group cursor-pointer flex flex-col items-center">
@@ -63,22 +35,17 @@ const RecipeCard = React.memo(({ recipe, language, onClick, categories, onUpdate
             src={recipe.image} 
             loading="lazy"
             className="w-full h-full object-cover transition-transform duration-[1.5s] group-hover:scale-105" 
-            alt={displayContent?.title} 
+            alt={content?.title} 
           />
         ) : (
-          <div className="w-full h-full bg-[#F5F5F0] flex items-center justify-center text-[#1C1C1C]/10 uppercase text-[10px] tracking-[0.5em]">Sans Image</div>
+          <div className="w-full h-full bg-[#F5F5F0] flex items-center justify-center text-[#1C1C1C]/10 uppercase text-[10px] tracking-[0.5em]">ללא תמונה</div>
         )}
         <div className="absolute inset-0 bg-[#1C1C1C]/0 group-hover:bg-[#1C1C1C]/5 transition-colors duration-700"></div>
-        {isTranslating && (
-          <div className="absolute inset-0 bg-white/40 backdrop-blur-[2px] flex items-center justify-center">
-            <div className="w-4 h-4 border border-[#1C1C1C] border-t-transparent rounded-full animate-spin"></div>
-          </div>
-        )}
       </div>
       <div className="text-center space-y-3">
         <p className="text-[9px] uppercase tracking-[0.4em] text-[#8B7355] font-bold">{catLabel}</p>
         <h3 className="serif text-3xl text-[#1C1C1C] group-hover:italic transition-all">
-          {isTranslating ? '...' : (displayContent?.title || 'Untitled')}
+          {content?.title || 'ללא שם'}
         </h3>
         <div className="w-8 h-[1px] bg-[#1C1C1C]/10 mx-auto mt-4 group-hover:w-20 transition-all"></div>
       </div>
@@ -87,8 +54,6 @@ const RecipeCard = React.memo(({ recipe, language, onClick, categories, onUpdate
 });
 
 const App: React.FC = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [language, setLanguage] = useState<Language>(Language.HE);
@@ -110,44 +75,46 @@ const App: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [sortOption, setSortOption] = useState<SortOption>('newest');
 
-  // Auth Listener
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setAuthLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
-
   // Scroll to top on view changes
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [selectedRecipe, showForm, editingRecipe, selectedCategoryId]);
 
-  // Firestore Listeners
+  // Firestore Listeners & Auto-seeding
   useEffect(() => {
-    if (!user) {
-      setRecipes([]);
-      setCategories([]);
-      return;
-    }
-
     const recipesQuery = query(
-      collection(db, `users/${user.uid}/recipes`),
+      collection(db, 'recipes'),
       orderBy('createdAt', 'desc')
     );
-    const unsubRecipes = onSnapshot(recipesQuery, (snapshot) => {
-      const docs = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Recipe));
-      setRecipes(docs);
+    const unsubRecipes = onSnapshot(recipesQuery, async (snapshot) => {
+      if (snapshot.empty) {
+        // Seed initial recipes to Firestore if it is completely empty
+        try {
+          for (const r of INITIAL_RECIPES) {
+            await setDoc(doc(db, 'recipes', r.id), r);
+          }
+        } catch (err) {
+          console.error("Failed to seed initial recipes:", err);
+        }
+      } else {
+        const docs = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Recipe));
+        setRecipes(docs);
+      }
     });
 
-    const categoriesQuery = query(collection(db, `users/${user.uid}/categories`));
-    const unsubCategories = onSnapshot(categoriesQuery, (snapshot) => {
-      const docs = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Category));
-      // Merge with default categories if needed, or just use user ones
-      if (docs.length === 0) {
-        setCategories(DEFAULT_CATEGORIES);
+    const categoriesQuery = query(collection(db, 'categories'));
+    const unsubCategories = onSnapshot(categoriesQuery, async (snapshot) => {
+      if (snapshot.empty) {
+        // Seed default categories to Firestore if it is completely empty
+        try {
+          for (const cat of DEFAULT_CATEGORIES) {
+            await setDoc(doc(db, 'categories', cat.id), cat);
+          }
+        } catch (err) {
+          console.error("Failed to seed default categories:", err);
+        }
       } else {
+        const docs = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Category));
         setCategories(docs);
       }
     });
@@ -156,7 +123,7 @@ const App: React.FC = () => {
       unsubRecipes();
       unsubCategories();
     };
-  }, [user]);
+  }, []);
 
   useEffect(() => {
     const handler = setTimeout(() => setDebouncedQuery(searchQuery), 300);
@@ -164,21 +131,17 @@ const App: React.FC = () => {
   }, [searchQuery]);
 
   const handleSaveRecipe = useCallback(async (recipeData: Partial<Recipe>) => {
-    if (!user) return;
-
     try {
       if (editingRecipe) {
-        const recipeRef = doc(db, `users/${user.uid}/recipes`, editingRecipe.id);
-        await setDoc(recipeRef, { ...recipeData, userId: user.uid }, { merge: true });
+        const recipeRef = doc(db, 'recipes', editingRecipe.id);
+        await setDoc(recipeRef, recipeData, { merge: true });
         setEditingRecipe(null);
       } else {
-        const recipesCol = collection(db, `users/${user.uid}/recipes`);
+        const recipesCol = collection(db, 'recipes');
         const newRecipe = {
           ...recipeData,
           createdAt: Date.now(),
-          userId: user.uid,
-          [Language.HE]: language === Language.HE ? recipeData[Language.HE] : null,
-          [Language.ES]: language === Language.ES ? recipeData[Language.ES] : null,
+          [Language.HE]: recipeData[Language.HE] || null,
         };
         await addDoc(recipesCol, newRecipe);
       }
@@ -186,24 +149,22 @@ const App: React.FC = () => {
     } catch (e) {
       console.error("Error saving recipe:", e);
     }
-  }, [editingRecipe, language, user]);
+  }, [editingRecipe]);
 
   const handleAddCategory = useCallback(async (cat: Omit<Category, 'id'>) => {
-    if (!user) return null as any;
     try {
-      const categoriesCol = collection(db, `users/${user.uid}/categories`);
-      const docRef = await addDoc(categoriesCol, { ...cat, userId: user.uid });
-      return { ...cat, id: docRef.id, userId: user.uid } as Category;
+      const categoriesCol = collection(db, 'categories');
+      const docRef = await addDoc(categoriesCol, cat);
+      return { ...cat, id: docRef.id } as Category;
     } catch (e) {
       console.error("Error adding category:", e);
       return null as any;
     }
-  }, [user]);
+  }, []);
 
   const handleUpdateCategory = async (cat: Category) => {
-    if (!user) return;
     try {
-      const catRef = doc(db, `users/${user.uid}/categories`, cat.id);
+      const catRef = doc(db, 'categories', cat.id);
       await setDoc(catRef, cat, { merge: true });
     } catch (e) {
       console.error("Error updating category:", e);
@@ -211,13 +172,9 @@ const App: React.FC = () => {
   };
 
   const handleDeleteCategory = async (id: string) => {
-    if (!user) return;
-    if (window.confirm('Delete category? Recipes will become uncategorized.')) {
+    if (window.confirm('האם למחוק קטגוריה זו? מתכונים תחתיה יהפכו לללא קטגוריה.')) {
       try {
-        await deleteDoc(doc(db, `users/${user.uid}/categories`, id));
-        // Recipes update will be handled by the app state if we want, 
-        // but Firestore rules or a batch would be better.
-        // For now, let's just delete the category.
+        await deleteDoc(doc(db, 'categories', id));
       } catch (e) {
         console.error("Error deleting category:", e);
       }
@@ -225,19 +182,17 @@ const App: React.FC = () => {
   };
 
   const handleUrlImport = async () => {
-    if (!importUrl || !user) return;
+    if (!importUrl) return;
     setIsImporting(true);
     try {
       const scrapedContent = await importRecipeFromUrl(importUrl, language);
       if (scrapedContent) {
         const imageUrl = await generateRecipeImage(scrapedContent.title);
-        const recipesCol = collection(db, `users/${user.uid}/recipes`);
+        const recipesCol = collection(db, 'recipes');
         const newRecipe = {
           createdAt: Date.now(),
           image: imageUrl || undefined,
-          userId: user.uid,
-          [Language.HE]: language === Language.HE ? scrapedContent : null,
-          [Language.ES]: language === Language.ES ? scrapedContent : null,
+          [Language.HE]: scrapedContent,
         };
         await addDoc(recipesCol, newRecipe);
         setImportUrl('');
@@ -253,10 +208,9 @@ const App: React.FC = () => {
   };
 
   const handleDeleteRecipe = async (id: string) => {
-    if (!user) return;
-    if (window.confirm(language === Language.HE ? 'האם אתה בטוח שברצונך למחוק מתכון זה?' : '¿Estás seguro de que quieres eliminar esta receta?')) {
+    if (window.confirm('האם אתה בטוח שברצונך למחוק מתכון זה?')) {
       try {
-        await deleteDoc(doc(db, `users/${user.uid}/recipes`, id));
+        await deleteDoc(doc(db, 'recipes', id));
         setSelectedRecipe(null);
       } catch (e) {
         console.error("Error deleting recipe:", e);
@@ -264,21 +218,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleLogout = () => signOut(auth);
-
   const t = UI_STRINGS[language];
-
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F5F5F0]">
-        <div className="w-12 h-12 border-2 border-[#1C1C1C] border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <Auth language={language} />;
-  }
 
   const processedRecipes = useMemo(() => {
     const query = debouncedQuery.trim().toLowerCase();
@@ -290,7 +230,7 @@ const App: React.FC = () => {
 
       // Text Filter
       if (terms.length === 0) return true;
-      const contents = [recipe[Language.HE], recipe[Language.ES]].filter(Boolean);
+      const contents = [recipe[Language.HE]].filter(Boolean);
       return terms.every(term => contents.some(content => {
         const titleMatch = searchInTitle && content.title.toLowerCase().includes(term);
         const ingredientMatch = searchInIngredients && content.ingredients.some(ing => ing.name.toLowerCase().includes(term));
@@ -302,16 +242,16 @@ const App: React.FC = () => {
       if (sortOption === 'newest') return b.createdAt - a.createdAt;
       if (sortOption === 'oldest') return a.createdAt - b.createdAt;
       if (sortOption === 'alphabetical') {
-        const titleA = (a[language]?.title || a[Language.HE]?.title || '').toLowerCase();
-        const titleB = (b[language]?.title || b[Language.HE]?.title || '').toLowerCase();
+        const titleA = (a[Language.HE]?.title || '').toLowerCase();
+        const titleB = (b[Language.HE]?.title || '').toLowerCase();
         return titleA.localeCompare(titleB);
       }
       return 0;
     });
-  }, [recipes, debouncedQuery, searchInTitle, searchInIngredients, language, sortOption, selectedCategoryId]);
+  }, [recipes, debouncedQuery, searchInTitle, searchInIngredients, sortOption, selectedCategoryId]);
 
   return (
-    <div className={`min-h-screen pb-32 px-4 md:px-12 transition-colors duration-700 ${language === Language.HE ? 'rtl font-heebo' : 'ltr font-inter'}`}>
+    <div className="min-h-screen pb-32 px-4 md:px-12 transition-colors duration-700 rtl font-heebo">
       <header className="glass-header sticky top-0 z-50 py-6 mb-8">
         <div className="max-w-7xl mx-auto flex flex-col lg:flex-row justify-between items-center gap-8">
           <div className="flex flex-col items-center lg:items-start">
@@ -330,10 +270,10 @@ const App: React.FC = () => {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={language === Language.HE ? 'חפש מתכון...' : 'Buscar...'}
+                placeholder="חפש מתכון..."
                 className="w-full bg-[#F5F5F0] border-b border-[#1C1C1C]/10 py-3 px-4 outline-none focus:border-[#8B7355] transition-all text-sm tracking-wide"
               />
-              <div className={`absolute top-1/2 -translate-y-1/2 flex items-center gap-4 ${language === Language.HE ? 'left-2' : 'right-2'}`}>
+              <div className="absolute top-1/2 -translate-y-1/2 flex items-center gap-4 left-2">
                 <button onClick={() => setShowFilters(!showFilters)} className={`p-1.5 transition-colors ${showFilters ? 'text-[#8B7355]' : 'text-[#1C1C1C]/30 hover:text-[#1C1C1C]'}`}>
                   <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 6h18M6 12h12m-9 6h6" strokeLinecap="round"/></svg>
                 </button>
@@ -343,7 +283,7 @@ const App: React.FC = () => {
               <div className="absolute mt-4 w-full bg-white premium-border p-6 shadow-2xl animate-in fade-in slide-in-from-top-4 duration-500 z-50">
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-[11px] uppercase tracking-[0.1em] font-bold text-[#1C1C1C]/60">
                   <div className="space-y-4">
-                    <p className="text-[#8B7355] border-b border-[#8B7355]/10 pb-2">Options</p>
+                    <p className="text-[#8B7355] border-b border-[#8B7355]/10 pb-2">אפשרויות</p>
                     <div className="flex gap-6">
                       <label className="flex items-center gap-3 cursor-pointer hover:text-[#1C1C1C]">
                         <input type="checkbox" checked={searchInTitle} onChange={() => setSearchInTitle(!searchInTitle)} className="accent-[#1C1C1C]" />
@@ -356,11 +296,11 @@ const App: React.FC = () => {
                     </div>
                   </div>
                   <div className="space-y-4">
-                    <p className="text-[#8B7355] border-b border-[#8B7355]/10 pb-2">Trier</p>
+                    <p className="text-[#8B7355] border-b border-[#8B7355]/10 pb-2">מיון</p>
                     <select value={sortOption} onChange={(e) => setSortOption(e.target.value as SortOption)} className="bg-transparent border-none outline-none cursor-pointer hover:text-[#1C1C1C] w-full">
-                      <option value="newest">{language === Language.HE ? 'חדש ביותר' : 'Más Reciente'}</option>
-                      <option value="oldest">{language === Language.HE ? 'ישן ביותר' : 'Más Antiguo'}</option>
-                      <option value="alphabetical">{language === Language.HE ? 'א-ת' : 'Alfabético'}</option>
+                      <option value="newest">חדש ביותר</option>
+                      <option value="oldest">ישן ביותר</option>
+                      <option value="alphabetical">א-ת</option>
                     </select>
                   </div>
                 </div>
@@ -369,13 +309,6 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-6">
-            <div className="flex items-center gap-4 mr-4">
-              <span className="text-[10px] uppercase tracking-widest text-[#1C1C1C]/40 font-bold">{user.email}</span>
-              <button onClick={handleLogout} className="text-[#8B7355] hover:text-[#1C1C1C] text-[10px] font-bold uppercase tracking-widest transition-colors">
-                {language === Language.HE ? 'התנתק' : 'Salir'}
-              </button>
-            </div>
-            <LanguageToggle current={language} onChange={setLanguage} />
             <button 
               onClick={() => setShowImportBar(!showImportBar)} 
               className={`p-2 transition-colors ${showImportBar ? 'text-[#8B7355]' : 'text-[#1C1C1C]/40 hover:text-[#1C1C1C]'}`}
@@ -384,7 +317,7 @@ const App: React.FC = () => {
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </button>
             <button onClick={() => setShowCategoryManager(true)} className="p-2 text-[#1C1C1C]/40 hover:text-[#1C1C1C] transition-colors" title={t.manageCategories}>
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
             </button>
             <button onClick={() => { setShowForm(true); setSelectedRecipe(null); setEditingRecipe(null); }} className="bg-[#1C1C1C] text-white px-6 py-3 text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-[#8B7355] transition-all">
               {t.addRecipe}
@@ -472,7 +405,7 @@ const App: React.FC = () => {
         ) : selectedRecipe ? (
           <div className="animate-in fade-in duration-700">
             <button onClick={() => setSelectedRecipe(null)} className="mb-12 text-[#1C1C1C]/40 hover:text-[#8B7355] text-[10px] uppercase tracking-[0.3em] font-bold flex items-center gap-4 transition-all">
-              <span className="text-lg">←</span> {language === Language.HE ? 'חזרה לגלריה' : 'Volver'}
+              <span className="text-lg">←</span> חזרה לגלריה
             </button>
             <RecipeView 
               recipe={selectedRecipe} 
@@ -485,7 +418,7 @@ const App: React.FC = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-16 animate-in fade-in duration-1000">
             {processedRecipes.length === 0 ? (
-              <div className="col-span-full py-40 text-center text-[#1C1C1C]/20 serif italic text-3xl">La cuisine est vide...</div>
+              <div className="col-span-full py-40 text-center text-[#1C1C1C]/20 serif italic text-3xl">אין עדיין מתכונים...</div>
             ) : (
               processedRecipes.map(recipe => (
                 <RecipeCard 
