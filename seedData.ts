@@ -39,7 +39,6 @@ export const INITIAL_RECIPES: Recipe[] = [
       ],
       ovenInstructions: '180 מעלות צלזיוס למשך כ-10 דקות.'
     },
-    [Language.ES]: null as any
   },
   {
     id: 'tiramisu',
@@ -68,7 +67,6 @@ export const INITIAL_RECIPES: Recipe[] = [
       ],
       notes: 'ניתן להשתמש בליקר קפה לטעם עמוק יותר.'
     },
-    [Language.ES]: null as any
   },
   {
     id: 'garlic-rolls',
@@ -100,6 +98,5 @@ export const INITIAL_RECIPES: Recipe[] = [
       ],
       ovenInstructions: '190 מעלות עד להזהבה.'
     },
-    [Language.ES]: null as any
   }
 ];
