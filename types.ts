@@ -1,7 +1,6 @@
 
 export enum Language {
-  HE = 'he',
-  ES = 'es'
+  HE = 'he'
 }
 
 export type Unit = 'gram' | 'kg' | 'tsp' | 'tbsp' | 'cup' | 'pinch' | 'drizzle' | 'units' | 'ml' | 'liters';
@@ -9,7 +8,6 @@ export type Unit = 'gram' | 'kg' | 'tsp' | 'tbsp' | 'cup' | 'pinch' | 'drizzle' 
 export interface Category {
   id: string;
   [Language.HE]: string;
-  [Language.ES]: string;
   userId?: string;
 }
 
@@ -42,7 +40,6 @@ export interface Recipe {
   createdAt: number;
   categoryId?: string;
   [Language.HE]: RecipeContent;
-  [Language.ES]: RecipeContent;
   userId?: string;
 }
 
@@ -77,7 +74,6 @@ export interface TranslationStrings {
   importError: string;
   manageCategories: string;
   categoryNameHe: string;
-  categoryNameEs: string;
   allCategories: string;
   uncategorized: string;
   servings: string;
