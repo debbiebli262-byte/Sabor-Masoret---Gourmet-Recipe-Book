@@ -83,20 +83,27 @@ const App: React.FC = () => {
   useEffect(()=>{document.documentElement.lang=language;document.documentElement.dir=es?'ltr':'rtl';try{localStorage.setItem('sabor-language',language)}catch{}},[language]);
   const [translationProgress,setTranslationProgress]=useState('');
   const [translationError,setTranslationError]=useState('');
-  const attemptedTranslations=useRef(new Set<string>());
   const migrationRunning=useRef(false);
+  const retryAt=useRef(new Map<string,number>());
+  const failures=useRef(new Map<string,number>());
+  const [retryTick,setRetryTick]=useState(0);
   const pendingTranslations=recipes.filter(r=>!r.deletedAt&&!r.es);
   useEffect(()=>{
-    if(!canEdit||migrationRunning.current||translationError)return;
-    const pending=recipes.filter(r=>!r.deletedAt&&!r.es&&!attemptedTranslations.current.has(r.id));
+    if(!canEdit||!pendingTranslations.length)return;
+    const timer=window.setInterval(()=>setRetryTick(t=>t+1),15000);
+    return()=>window.clearInterval(timer);
+  },[canEdit,pendingTranslations.length]);
+  useEffect(()=>{
+    if(!canEdit||migrationRunning.current)return;
+    const pending=recipes.filter(r=>!r.deletedAt&&!r.es&&(retryAt.current.get(r.id)||0)<=Date.now());
     if(!pending.length)return;
     migrationRunning.current=true;
+    const uid=auth.currentUser?.uid;
     void (async()=>{
       try{
         for(let i=0;i<pending.length;i++){
-          if(!auth.currentUser)break;
+          if(!uid||auth.currentUser?.uid!==uid)break;
           const recipe=pending[i];
-          attemptedTranslations.current.add(recipe.id);
           setTranslationProgress((i+1)+' / '+pending.length);
           try{
             const translated=await translateRecipe(recipe.he,Language.ES);
@@ -105,14 +112,27 @@ const App: React.FC = () => {
               const ref=doc(db,'recipes',recipe.id);
               const current=await tx.get(ref);
               if(!current.exists()||current.data().deletedAt||current.data().es)return;
-              if(JSON.stringify(current.data().he)!==JSON.stringify(recipe.he)){attemptedTranslations.current.delete(recipe.id);return}
+              if(JSON.stringify(current.data().he)!==JSON.stringify(recipe.he))return;
               tx.update(ref,{es:translated});
             });
-          }catch(e){attemptedTranslations.current.delete(recipe.id);setTranslationError(e instanceof Error?e.message:String(e));break}
+            retryAt.current.set(recipe.id,Date.now()+60000);
+            failures.current.delete(recipe.id);
+            setTranslationError('');
+          }catch(e){
+            const n=(failures.current.get(recipe.id)||0)+1;
+            failures.current.set(recipe.id,n);
+            const message=e instanceof Error?e.message:String(e);
+            setTranslationError(message);
+            retryAt.current.set(recipe.id,Date.now()+Math.min(600000,30000*2**Math.min(n,5)));
+            if(/429|503|404|401|403|502|מכסת|מורשה|הרשאת|מודל|שירות/.test(message)){
+              for(const remaining of pending.slice(i+1))retryAt.current.set(remaining.id,Date.now()+60000);
+              break;
+            }
+          }
         }
       }finally{migrationRunning.current=false;setTranslationProgress('')}
     })();
-  },[canEdit,recipes,translationError,translationProgress]);
+  },[canEdit,recipes,retryTick]);
   const printEdition=(items:Recipe[],book=true)=>{
     const active=items.filter(r=>!r.deletedAt);
     if(es&&active.some(r=>!r.es)){alert(L('יש לתרגם את המתכונים לפני ההדפסה','Hay traducciones pendientes. Ingresá como editor y dejá que se complete la traducción automática.'));return}
@@ -421,7 +441,8 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      {canEdit&&pendingTranslations.length>0&&<div role="status" className="max-w-7xl mx-auto mb-4 border border-[#D7C8A9] p-3 text-sm text-[#806A47]">{translationError?L("התרגום האוטומטי נעצר: ","La traducción automática se detuvo: ")+translationError:L("משלים תרגום אוטומטי של מתכונים קיימים: ","Completando traducciones automáticamente: ")+(translationProgress||pendingTranslations.length)}{translationError&&<span className="block text-xs mt-1">{L("רענון האתר ינסה שוב. המתכונים המקוריים נשמרו.","Al recargar se volverá a intentar. Las recetas originales se conservan.")}</span>}</div>}
+      {!canEdit&&pendingTranslations.length>0&&<div className="max-w-7xl mx-auto mb-4 border border-[#D7C8A9] p-3 text-sm text-[#806A47]">{L("יש "+pendingTranslations.length+" מתכונים שטרם תורגמו. יש להתחבר לחשבון עריכה כדי להשלים אותם אוטומטית.","Hay "+pendingTranslations.length+" recetas pendientes de traducción. Ingresá con una cuenta de edición para completarlas automáticamente.")} {!user&&<button onClick={login} className="underline">{L("כניסה עם Google","Ingresar con Google")}</button>}</div>}
+      {canEdit&&pendingTranslations.length>0&&<div role="status" className="max-w-7xl mx-auto mb-4 border border-[#D7C8A9] p-3 text-sm text-[#806A47]">{translationError?L("התרגום האוטומטי נתקל בתקלה: ","La traducción automática encontró un error: ")+translationError:L("משלים תרגום אוטומטי של מתכונים קיימים: ","Completando traducciones automáticamente: ")+(translationProgress||pendingTranslations.length)}{translationError&&<span className="block text-xs mt-1">{L("המערכת תנסה שוב אוטומטית כל עוד האתר פתוח. המתכונים המקוריים נשמרו.","Se reintentará automáticamente mientras el sitio esté abierto. Las recetas originales se conservan.")}</span>}</div>}
       {showPlanner ? <main className="max-w-7xl mx-auto"><FamilyPlanner recipes={recipes.filter(r=>!r.deletedAt)} onClose={goBook} language={language}/></main> : <>
       {canEdit && showTrash && <section className="max-w-5xl mx-auto border p-5 mb-6 bg-white"><h2 className="serif text-2xl">{L("סל מחזור","Papelera")}</h2>{recipes.filter(r=>r.deletedAt).length===0&&<p>{L("אין מתכונים בסל","La papelera está vacía")}</p>}{recipes.filter(r=>r.deletedAt).map(r=><div key={r.id} className="flex justify-between border-b p-3"><span>{r.he.title}</span><button className="underline" onClick={async()=>{try{await setDoc(doc(db,'recipes',r.id),{deletedAt:null},{merge:true})}catch{alert('השחזור נכשל')}}}>{L("שחזור","Restaurar")}</button></div>)}</section>}
       {canEdit && showImportBar && (
