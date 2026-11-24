@@ -1,6 +1,16 @@
 import { Ingredient, Unit } from '../types';
 
 const aliases: [RegExp, Unit][] = [
+  [/^(?:kilogramos?|kilos?)(?=\s|$)/i,'kg'],
+  [/^(?:gramos?|gr\.?)(?=\s|$)/i,'gram'],
+  [/^(?:mililitros?)(?=\s|$)/i,'ml'],
+  [/^(?:litros?)(?=\s|$)/i,'liters'],
+  [/^(?:cucharadas?|cdas?\.?)(?=\s|$)/i,'tbsp'],
+  [/^(?:cucharaditas?|cdtas?\.?)(?=\s|$)/i,'tsp'],
+  [/^(?:tazas?)(?=\s|$)/i,'cup'],
+  [/^(?:unidades?|unidad)(?=\s|$)/i,'units'],
+  [/^(?:pizcas?)(?=\s|$)/i,'pinch'],
+  [/^(?:chorritos?)(?=\s|$)/i,'drizzle'],
   [/^(?:קילוגרמים?|ק["״']?ג|kg)(?=\s|$)/i,'kg'],
   [/^(?:גרמים?|גרם|גר[׳']?|ג[׳']|grams?|g)(?=\s|$)/i,'gram'],
   [/^(?:מיליליטרים?|מ["״']?ל|ml)(?=\s|$)/i,'ml'],
@@ -26,7 +36,7 @@ function parseMeasure(text:string): {amount:number;unit:Unit;rest:string}|null {
   let rest=text.slice(m?.[0].length||words?.[0].length||0).trim();
   let unit:Unit='units';
   const match=aliases.find(([rx])=>rx.test(rest));
-  if(match){unit=match[1];rest=rest.replace(match[0],'').trim();}
+  if(match){unit=match[1];rest=rest.replace(match[0],'').trim().replace(/^de\s+/i,'');}
   if(!Number.isFinite(amount)||amount<=0)return null;
   return {amount,unit,rest};
 }
