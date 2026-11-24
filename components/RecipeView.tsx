@@ -19,6 +19,14 @@ const RecipeView: React.FC<Props> = ({ recipe, language, onUpdate, onEdit, onDel
   const content = recipe[language];
   const [isGeneratingImg, setIsGeneratingImg] = useState(false);
   const [scale, setScale] = useState<number>(1);
+  const [checked,setChecked] = useState<string[]>([]);
+  const [cooking,setCooking] = useState(false);
+  const [stepIndex,setStepIndex] = useState(0);
+  const [minutes,setMinutes] = useState(5);
+  const [deadline,setDeadline] = useState(0);
+  const [now,setNow] = useState(Date.now());
+  useEffect(()=>{if(!deadline)return; const timer=setInterval(()=>setNow(Date.now()),500);return()=>clearInterval(timer)},[deadline]);
+  useEffect(()=>{if(!cooking)return;let active=true;let lock:any;const acquire=async()=>{try{const l=await (navigator as any).wakeLock?.request('screen');if(active)lock=l;else l?.release()}catch{}};acquire();const visible=()=>{if(document.visibilityState==='visible')acquire()};document.addEventListener('visibilitychange',visible);return()=>{active=false;document.removeEventListener('visibilitychange',visible);lock?.release()}},[cooking]);
 
   const handleAiGen = async (e?: React.MouseEvent) => {
     if (e) {
@@ -147,6 +155,12 @@ const RecipeView: React.FC<Props> = ({ recipe, language, onUpdate, onEdit, onDel
       </div>
 
       <div className="p-8 md:p-12">
+        <div className="flex flex-wrap gap-3 text-sm mb-6">{[content.prepTime,content.cookTime,content.difficulty,content.panSize,content.credit].filter(Boolean).map((v,i)=><span key={i} className="bg-[#F5F5F0] px-3 py-2">{v}</span>)}{content.tags?.map((tag,i)=><span key={'tag'+i} className="border px-2 py-1">{tag}</span>)}</div>
+        {recipe.sourceUrl && /^https?:\/\//i.test(recipe.sourceUrl) && <a className="underline text-sm" href={recipe.sourceUrl} target="_blank" rel="noopener noreferrer">למתכון המקורי</a>}
+        {content.storage && <p className="text-sm my-4">אחסון והקפאה: {content.storage}</p>}
+        <div className="flex gap-3 flex-wrap my-4"><button onClick={()=>{setCooking(true);setStepIndex(0)}} className="border px-3 py-2">מצב בישול</button><button className="border px-3 py-2" onClick={()=>navigator.clipboard?.writeText(window.location.origin+'/?recipe='+encodeURIComponent(recipe.id)).then(()=>alert('הקישור הועתק')).catch(()=>alert('לא ניתן להעתיק'))}>שיתוף מתכון</button></div>
+        {content.servings ? <label className="block">מספר מנות <input type="number" min="1" max="500" value={Math.round(content.servings*scale*100)/100} onChange={e=>{const n=Number(e.target.value);if(n>0)setScale(n/content.servings!)}} className="border p-2 w-24"/></label>:null}
+        {cooking && <div role="dialog" aria-label="מצב בישול" className="fixed inset-0 z-[100] bg-[#FAF9F6] overflow-auto p-6 md:p-16"><button onClick={()=>setCooking(false)} className="border p-2">סגור מצב בישול</button><h2 className="serif text-3xl my-6">{content.title}</h2><p>שלב {stepIndex+1} מתוך {content.instructions.length}</p><p className="text-2xl my-8">{content.instructions[stepIndex]?.text || 'אין שלבים'}</p><div className="flex gap-4"><button disabled={!stepIndex} onClick={()=>setStepIndex(i=>i-1)}>הקודם</button><button disabled={stepIndex>=content.instructions.length-1} onClick={()=>setStepIndex(i=>i+1)}>הבא</button></div><div className="my-8"><label>דקות לטיימר <input type="number" min="1" max="600" value={minutes} onChange={e=>setMinutes(Number(e.target.value))} className="border p-2 w-24"/></label><button onClick={()=>{setNow(Date.now());setDeadline(Date.now()+Math.max(1,minutes)*60000)}}>הפעל טיימר</button><button onClick={()=>setDeadline(0)}>איפוס</button>{deadline>0&&<p role="status" className="text-3xl">{now>=deadline?'הזמן הסתיים!':Math.ceil((deadline-now)/1000)+' שניות'}</p>}</div></div>}
         {/* Intro Description & Scaling Controls */}
         <div className="max-w-2xl mx-auto text-center mb-10 space-y-8">
           <p className="serif text-xl italic text-[#1C1C1C]/70 leading-relaxed font-light">
@@ -188,7 +202,7 @@ const RecipeView: React.FC<Props> = ({ recipe, language, onUpdate, onEdit, onDel
                   <ul className="space-y-1">
                     {ings.map((ing: any) => (
                       <li key={ing.id} className="flex justify-between items-baseline group">
-                        <span className="text-sm font-medium text-[#1C1C1C]">{ing.name}</span>
+                        <label className={checked.includes(ing.id)?'line-through opacity-50':'text-sm font-medium'}><input type="checkbox" checked={checked.includes(ing.id)} onChange={e=>setChecked(e.target.checked?[...checked,ing.id]:checked.filter(id=>id!==ing.id))}/> {ing.name}</label>
                         <span className="text-[10px] uppercase tracking-wider text-[#1C1C1C]/40 italic ml-2">
                           {formatAmount(ing.amount)} {getUnitLabel(ing.unit)}
                         </span>
