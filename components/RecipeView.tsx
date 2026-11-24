@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Recipe, Language, RecipeContent, Unit } from '../types';
 import { UI_STRINGS, UNITS } from '../constants';
 import { translateRecipe, generateRecipeImage } from '../services/geminiService';
-import { exportRecipeToPdf } from '../services/pdfService';
+import { printCookbook } from '../services/printCookbook';
 
 interface Props {
   recipe: Recipe;
@@ -126,7 +126,7 @@ const RecipeView: React.FC<Props> = ({ recipe, language, onUpdate, onEdit, onDel
         <div className="absolute top-6 right-6 z-30 print:hidden">
           <button
             type="button"
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); exportRecipeToPdf(`recipe-${recipe.id}`, content.title); }}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); printCookbook([recipe], [], false, scale); }}
             className="bg-[#1C1C1C] text-white px-6 py-3 text-[10px] font-bold uppercase tracking-[0.3em] hover:bg-[#8B7355] transition-all shadow-xl flex items-center gap-2 active:scale-95"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
