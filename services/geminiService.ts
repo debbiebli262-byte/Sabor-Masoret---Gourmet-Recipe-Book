@@ -2,7 +2,12 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Language, RecipeContent } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Initialize AI only when an AI action is requested, never on page load.
+function getAI() {
+  const apiKey = typeof process !== 'undefined' ? process.env?.API_KEY : undefined;
+  if (!apiKey) throw new Error('AI service requires a server-side API configuration');
+  return new GoogleGenAI({ apiKey });
+}
 
 /**
  * Helper to extract and parse JSON from a model response that might contain markdown blocks.
@@ -19,7 +24,7 @@ function safeParseJson(text: string): any {
 
 export async function generateRecipeImage(prompt: string): Promise<string | null> {
   try {
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
         parts: [{ 
@@ -57,7 +62,7 @@ export async function translateRecipe(content: RecipeContent, targetLang: Langua
   Recipe: ${JSON.stringify(content)}`;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
@@ -117,7 +122,7 @@ export async function importRecipeFromUrl(url: string, targetLang: Language, cap
   Each instruction step must have an 'id' (random string), 'text', and 'category'.`;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
