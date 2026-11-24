@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Recipe, Language, RecipeContent, Category } from './types';
 import { UI_STRINGS, DEFAULT_CATEGORIES } from './constants';
 import { printCookbook } from './services/printCookbook';
+import FamilyPlanner from './components/FamilyPlanner';
 import RecipeForm from './components/RecipeForm';
 import RecipeView from './components/RecipeView';
 import CategoryManager from './components/CategoryManager';
@@ -82,6 +83,11 @@ const App: React.FC = () => {
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | 'all'>('all');
 
+  const [draft,setDraft]=useState<Recipe|null>(null);
+  const [showPlanner,setShowPlanner]=useState(false);
+  const [importFile,setImportFile]=useState<{mimeType:string;data:string}|null>(null);
+  const [fileName,setFileName]=useState('');
+  const [showTrash,setShowTrash]=useState(false);
   const [importUrl, setImportUrl] = useState('');
   const [importText, setImportText] = useState('');
   const [isImporting, setIsImporting] = useState(false);
@@ -166,7 +172,7 @@ const App: React.FC = () => {
         };
         await addDoc(recipesCol, newRecipe);
       }
-      setShowForm(false);
+      setShowForm(false); setDraft(null);
     } catch (e) {
       console.error("Error saving recipe:", e);
       alert('שמירת המתכון נכשלה. נסי שוב.');
@@ -208,10 +214,10 @@ const App: React.FC = () => {
 
   const handleUrlImport = async () => {
     if (!canEdit) return;
-    if (!importUrl.trim() && !importText.trim()) return;
+    if (!importUrl.trim() && !importText.trim() && !importFile) return;
     setIsImporting(true);
     try {
-      const scrapedContent = await importRecipeFromUrl(importUrl, language, importText);
+      const scrapedContent = await importRecipeFromUrl(importUrl, language, importText, importFile || undefined);
       if (scrapedContent) {
         const categoryId = categories.find(c => c.he === scrapedContent.suggestedCategory)?.id || '';
         const recipesCol = collection(db, 'recipes');
@@ -221,7 +227,7 @@ const App: React.FC = () => {
           sourceUrl: importUrl.trim(),
           [Language.HE]: scrapedContent,
         };
-        await addDoc(recipesCol, newRecipe);
+        setDraft({...newRecipe,id:'draft'}); setEditingRecipe(null); setSelectedRecipe(null); setShowForm(true); setImportFile(null); setFileName('');
         setImportText('');
         setImportUrl('');
         setShowImportBar(false);
@@ -229,7 +235,7 @@ const App: React.FC = () => {
         alert(UI_STRINGS[language].importError);
       }
     } catch (e) {
-      alert(UI_STRINGS[language].importError);
+      alert(e instanceof Error?e.message:UI_STRINGS[language].importError);
     } finally {
       setIsImporting(false);
     }
@@ -237,9 +243,9 @@ const App: React.FC = () => {
 
   const handleDeleteRecipe = async (id: string) => {
     if (!canEdit) return;
-    if (window.confirm('האם אתה בטוח שברצונך למחוק מתכון זה?')) {
+    if (window.confirm('להעביר את המתכון לסל המחזור?')) {
       try {
-        await deleteDoc(doc(db, 'recipes', id));
+        await setDoc(doc(db, 'recipes', id), {deletedAt:Date.now()}, {merge:true});
         setSelectedRecipe(null);
       } catch (e) {
         console.error("Error deleting recipe:", e);
@@ -256,6 +262,7 @@ const App: React.FC = () => {
     const terms = query.split(/\s+/).filter(t => t.length > 0);
 
     let filtered = recipes.filter(recipe => {
+      if(recipe.deletedAt)return false;
       // Category Filter
       if (selectedCategoryId !== 'all' && recipe.categoryId !== selectedCategoryId) return false;
 
@@ -341,8 +348,10 @@ const App: React.FC = () => {
 
           <div className="flex flex-wrap items-center gap-3">
             {user ? <button onClick={() => signOut(auth).catch(() => alert("ההתנתקות נכשלה"))} className="border px-3 py-2 text-xs">התנתקות · {canEdit ? "עריכה" : "צפייה בלבד"}</button> : <button onClick={login} className="border px-3 py-2 text-xs">כניסה עם Google לעריכה</button>}
+            <button onClick={()=>setShowPlanner(v=>!v)} className="border px-3 py-2 text-xs">תפריט שבועי וקניות</button>
+            {canEdit && <><button onClick={()=>setShowTrash(v=>!v)} className="border px-3 py-2 text-xs">סל מחזור</button><button onClick={()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({recipes,categories,exportedAt:new Date().toISOString()},null,2)],{type:'application/json'}));a.download='sabor-masoret-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}} className="border px-3 py-2 text-xs">גיבוי</button></>}
             {!canEdit && <span className="text-xs text-[#8B7355]">צפייה בלבד</span>}
-            <button disabled={!recipes.length} onClick={() => printCookbook(recipes, categories)} className="border border-[#8B7355] px-3 py-2 text-xs">הדפסת כל הספר / PDF</button>
+            <button disabled={!recipes.length} onClick={() => printCookbook(recipes.filter(r=>!r.deletedAt), categories)} className="border border-[#8B7355] px-3 py-2 text-xs">הדפסת כל הספר / PDF</button>
             {selectedRecipe && <button onClick={() => printCookbook([selectedRecipe], categories, false)} className="border border-[#8B7355] px-3 py-2 text-xs">הדפסת מתכון</button>}
             {canEdit && <><button 
               onClick={() => setShowImportBar(!showImportBar)} 
@@ -354,13 +363,15 @@ const App: React.FC = () => {
             <button onClick={() => setShowCategoryManager(true)} className="p-2 text-[#1C1C1C]/40 hover:text-[#1C1C1C] transition-colors" title={t.manageCategories}>
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
             </button>
-            <button onClick={() => { setShowForm(true); setSelectedRecipe(null); setEditingRecipe(null); }} className="bg-[#1C1C1C] text-white px-6 py-3 text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-[#8B7355] transition-all">
+            <button onClick={() => { setDraft(null); setShowForm(true); setSelectedRecipe(null); setEditingRecipe(null); }} className="bg-[#1C1C1C] text-white px-6 py-3 text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-[#8B7355] transition-all">
               {t.addRecipe}
             </button></>}
           </div>
         </div>
       </header>
 
+      {showPlanner && <FamilyPlanner recipes={recipes.filter(r=>!r.deletedAt)} onClose={()=>setShowPlanner(false)}/>}
+      {canEdit && showTrash && <section className="max-w-5xl mx-auto border p-5 mb-6 bg-white"><h2 className="serif text-2xl">סל מחזור</h2>{recipes.filter(r=>r.deletedAt).length===0&&<p>אין מתכונים בסל</p>}{recipes.filter(r=>r.deletedAt).map(r=><div key={r.id} className="flex justify-between border-b p-3"><span>{r.he.title}</span><button className="underline" onClick={async()=>{try{await setDoc(doc(db,'recipes',r.id),{deletedAt:null},{merge:true})}catch{alert('השחזור נכשל')}}}>שחזור</button></div>)}</section>}
       {canEdit && showImportBar && (
         <div className="max-w-7xl mx-auto mb-12 animate-in slide-in-from-top-4 duration-500">
           <div className="bg-white premium-border p-6 flex flex-col md:flex-row gap-4 items-center shadow-xl">
@@ -372,9 +383,10 @@ const App: React.FC = () => {
               className="flex-1 w-full bg-[#F5F5F0] border-none py-3 px-4 outline-none text-sm"
             />
             <textarea value={importText} onChange={e => setImportText(e.target.value)} placeholder="אם הקישור חסום, הדביקי כאן את תיאור הפוסט או המתכון" className="w-full bg-[#F5F5F0] p-3 text-sm" />
+            <label className="text-xs">צילום או PDF<input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={e=>{const file=e.target.files?.[0];if(!file)return;if(file.size>2500000){alert('הקובץ גדול מדי, עד 2.5MB');return;}const reader=new FileReader();reader.onload=()=>{setImportFile({mimeType:file.type,data:String(reader.result).split(',')[1]});setFileName(file.name)};reader.readAsDataURL(file)}} />{fileName&&<button onClick={()=>{setImportFile(null);setFileName('')}}>הסר {fileName}</button>}</label>
             <button 
               onClick={handleUrlImport}
-              disabled={isImporting || (!importUrl.trim() && !importText.trim())}
+              disabled={isImporting || (!importUrl.trim() && !importText.trim() && !importFile)}
               className="bg-[#8B7355] text-white px-8 py-3 text-[10px] font-bold uppercase tracking-[0.2em] disabled:opacity-50 min-w-[180px] flex items-center justify-center gap-2"
             >
               {isImporting && <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>}
@@ -434,8 +446,9 @@ const App: React.FC = () => {
             language={language} 
             categories={categories}
             initialRecipe={editingRecipe || undefined}
+            draft={draft || undefined}
             onSave={handleSaveRecipe} 
-            onCancel={() => { setShowForm(false); setEditingRecipe(null); }} 
+            onCancel={() => { setShowForm(false); setEditingRecipe(null); setDraft(null); }} 
             onAddCategory={handleAddCategory}
           />
         ) : selectedRecipe ? (
