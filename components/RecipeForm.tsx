@@ -8,6 +8,7 @@ import { generateRecipeImage } from '../services/geminiService';
 interface Props {
   language: Language;
   initialRecipe?: Recipe;
+  draft?: Recipe;
   categories: Category[];
   onSave: (recipe: Partial<Recipe>) => void;
   onCancel: () => void;
@@ -82,7 +83,7 @@ const UnitSelect: React.FC<{
   );
 };
 
-const RecipeForm: React.FC<Props> = ({ language, initialRecipe, categories, onSave, onCancel, onAddCategory }) => {
+const RecipeForm: React.FC<Props> = ({ language, initialRecipe, draft, categories, onSave, onCancel, onAddCategory }) => {
   const t = UI_STRINGS[language];
   const [content, setContent] = useState<RecipeContent>({
     title: '',
@@ -110,8 +111,9 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, categories, onSa
   const [quickCatHe, setQuickCatHe] = useState('');
 
   useEffect(() => {
-    if (initialRecipe) {
-      const existingContent = initialRecipe[Language.HE];
+    const source=initialRecipe||draft;
+    if (source) {
+      const existingContent = source[Language.HE];
       
       if (existingContent) {
         setContent({
@@ -121,10 +123,10 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, categories, onSa
         });
       }
       
-      if (initialRecipe.image) setImage(initialRecipe.image);
-      if (initialRecipe.categoryId) setCategoryId(initialRecipe.categoryId);
+      if (source.image) setImage(source.image);
+      if (source.categoryId) setCategoryId(source.categoryId);
     }
-  }, [initialRecipe]);
+  }, [initialRecipe,draft]);
 
   const addIngredient = () => {
     const newIng: Ingredient = {
@@ -137,6 +139,13 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, categories, onSa
     setContent(prev => ({ ...prev, ingredients: [...(prev.ingredients || []), newIng] }));
   };
 
+  const [bulkSteps,setBulkSteps]=useState('');
+  const createSteps=()=>{
+    const lines=bulkSteps.split(/\r?\n/).map(x=>x.trim().replace(/^(?:\d+[.)]|[•●▪–*-])\s*/, '')).filter(Boolean);
+    if(!lines.length)return;
+    setContent(p=>({...p,instructions:[...p.instructions.filter(x=>x.text.trim()),...lines.map(text=>({id:crypto.randomUUID(),text,category:'General'}))]}));
+    setBulkSteps('');
+  };
   const addStep = () => {
     const newStep: PrepStep = {
       id: Math.random().toString(36).substr(2, 9),
@@ -338,6 +347,11 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, categories, onSa
             <h3 className="serif text-2xl text-[#1C1C1C] italic">{t.instructions}</h3>
             <button onClick={addStep} className="text-[#8B7355] text-[10px] font-bold uppercase tracking-widest hover:text-[#1C1C1C] transition-colors">+ {t.addStep}</button>
           </div>
+          <div className="bg-[#FAF9F6] border border-[#8B7355]/20 p-4 mb-6 space-y-3">
+            <label htmlFor="bulk-steps" className="block font-medium text-sm">הדבקה מהירה של הוראות הכנה</label>
+            <textarea id="bulk-steps" rows={5} value={bulkSteps} onChange={e=>setBulkSteps(e.target.value)} className="w-full bg-white border p-3 text-sm" placeholder="כל שלב בשורה נפרדת"/>
+            <button type="button" disabled={!bulkSteps.trim()} onClick={createSteps} className="bg-[#333A31] text-white px-5 py-3 text-sm disabled:opacity-40">צור שלבי הכנה</button>
+          </div>
           <div className="space-y-8">
             {(content.instructions || []).map((step, idx) => (
               <div key={step.id} className="flex gap-6 items-start animate-in fade-in duration-300">
@@ -345,7 +359,7 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, categories, onSa
                 <div className="flex-1 space-y-3">
                   <textarea className="w-full bg-[#F5F5F0] p-5 text-sm outline-none focus:ring-1 focus:ring-[#8B7355] min-h-[80px] focus:bg-white transition-colors" placeholder={t.instructions} value={step.text} onChange={e => updateStep(step.id, 'text', e.target.value)} />
                   <div className="flex justify-between items-center">
-                    <input className="bg-transparent border-b border-[#1C1C1C]/10 text-[9px] uppercase tracking-widest outline-none py-1 text-[#1C1C1C]/40 focus:text-[#1C1C1C] transition-colors" placeholder={t.category} value={step.category} onChange={e => updateStep(step.id, 'category', e.target.value)} />
+
                     <button onClick={() => removeStep(step.id)} className="text-red-300 hover:text-red-600 transition-colors"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
                   </div>
                 </div>
@@ -356,7 +370,7 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, categories, onSa
 
         <section className="space-y-4"><label>{t.notes}</label><textarea className="w-full bg-[#F5F5F0] p-4" value={content.notes || ""} onChange={e => setContent({...content, notes:e.target.value})}/><label>{t.oven}</label><textarea className="w-full bg-[#F5F5F0] p-4" value={content.ovenInstructions || ""} onChange={e => setContent({...content, ovenInstructions:e.target.value})}/></section>
         <div className="flex gap-4 pt-12 border-t border-[#1C1C1C]/5">
-          <button onClick={() => content.ingredients.some(i=>!i.name.trim()||!Number.isFinite(i.amount)||i.amount<0) ? alert('יש להשלים שם וכמות לכל מצרך') : content.title.trim() ? onSave({ [language]: content, image, categoryId: categoryId || '' }) : alert('יש להזין שם מתכון')} className="flex-1 bg-[#1C1C1C] text-white font-bold py-5 text-xs uppercase tracking-[0.4em] hover:bg-[#8B7355] shadow-2xl transition-all">
+          <button onClick={() => content.ingredients.some(i=>!i.name.trim()||!Number.isFinite(i.amount)||i.amount<0) ? alert('יש להשלים שם וכמות לכל מצרך') : content.title.trim() ? onSave({ [language]: content, image, categoryId: categoryId || '', ...(draft?.sourceUrl?{sourceUrl:draft.sourceUrl}:{}) }) : alert('יש להזין שם מתכון')} className="flex-1 bg-[#1C1C1C] text-white font-bold py-5 text-xs uppercase tracking-[0.4em] hover:bg-[#8B7355] shadow-2xl transition-all">
             {t.save}
           </button>
           <button onClick={onCancel} className="px-10 py-5 text-[#1C1C1C]/40 font-bold text-[10px] uppercase tracking-widest hover:text-[#1C1C1C] transition-all">
