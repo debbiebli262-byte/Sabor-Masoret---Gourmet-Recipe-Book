@@ -88,7 +88,10 @@ const App: React.FC = () => {
   const [installEvent,setInstallEvent]=useState<any>(null);
   useEffect(()=>{const onPrompt=(e:Event)=>{e.preventDefault();setInstallEvent(e)};const installed=()=>setInstallEvent(null);window.addEventListener('beforeinstallprompt',onPrompt);window.addEventListener('appinstalled',installed);return()=>{window.removeEventListener('beforeinstallprompt',onPrompt);window.removeEventListener('appinstalled',installed)}},[]);
   const installApp=async()=>{if(installEvent){await installEvent.prompt();setInstallEvent(null)}else alert('ב-Chrome באנדרואיד: לחצי על ⋮ ובחרי הוספה למסך הבית או התקנת אפליקציה. אם האפשרות אינה מופיעה, פתחי את האתר בדפדפן Chrome.')};
-  const [showPlanner,setShowPlanner]=useState(false);
+  const [showPlanner,setShowPlanner]=useState(()=>window.location.hash==='#weekly-menu');
+  useEffect(()=>{const change=()=>{setShowPlanner(window.location.hash==='#weekly-menu');setShowFilters(false);setMobileMenu(false);window.scrollTo(0,0)};window.addEventListener('hashchange',change);return()=>window.removeEventListener('hashchange',change)},[]);
+  const goPlanner=()=>{setShowPlanner(true);setShowFilters(false);setMobileMenu(false);window.location.hash='weekly-menu';window.scrollTo(0,0)};
+  const goBook=()=>{setShowPlanner(false);setMobileMenu(false);if(window.location.hash==='#weekly-menu')window.location.hash='book';window.scrollTo(0,0)};
   const [importFile,setImportFile]=useState<{mimeType:string;data:string}|null>(null);
   const [fileName,setFileName]=useState('');
   const [showTrash,setShowTrash]=useState(false);
@@ -294,35 +297,35 @@ const App: React.FC = () => {
 
   return (
     <div className="mobile-main min-h-screen pb-32 px-3 md:px-12 transition-colors duration-700 rtl font-heebo">
-      <header className="glass-header sticky top-0 z-50 py-6 mb-8">
-        <div className="header-layout max-w-7xl mx-auto flex flex-col lg:flex-row justify-between items-center gap-8">
-          <div className="flex flex-col items-center lg:items-start">
+      <header className="glass-header site-header py-6 mb-8">
+        <div className="header-layout max-w-7xl mx-auto flex flex-col items-center gap-4">
+          <div className="flex flex-col items-center">
             <h1 
-              className="serif text-3xl md:text-4xl font-light tracking-widest text-[#1C1C1C] cursor-pointer hover:opacity-70 transition-opacity uppercase"
-              onClick={() => { setSelectedRecipe(null); setShowForm(false); setEditingRecipe(null); setSearchQuery(''); setSelectedCategoryId('all'); }}
+              dir="ltr" className="serif text-3xl md:text-4xl font-light tracking-widest text-[#1C1C1C] cursor-pointer hover:opacity-70 transition-opacity uppercase"
+              onClick={() => { goBook(); setSelectedRecipe(null); setShowForm(false); setEditingRecipe(null); setSearchQuery(''); setSelectedCategoryId('all'); }}
             >
               SABOR & MASORET
             </h1>
             <span className="text-[10px] tracking-[0.3em] uppercase text-[#8B7355] mt-1 font-semibold">L'Art de la Cuisine</span>
           </div>
           
-          <div className="flex-1 max-w-xl w-full">
+          {!showPlanner && <div className="search-area max-w-2xl w-full">
             <div className="relative group">
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="חפש מתכון..."
-                className="w-full bg-[#F5F5F0] border-b border-[#1C1C1C]/10 py-3 px-4 outline-none focus:border-[#8B7355] transition-all text-sm tracking-wide"
+                className="w-full bg-white border border-[#D7C8A9] rounded-md py-3 pr-4 pl-14 outline-none focus:border-[#8B7355] transition-all text-sm tracking-wide"
               />
               <div className="absolute top-1/2 -translate-y-1/2 flex items-center gap-4 left-2">
-                <button onClick={() => setShowFilters(!showFilters)} className={`p-1.5 transition-colors ${showFilters ? 'text-[#8B7355]' : 'text-[#1C1C1C]/30 hover:text-[#1C1C1C]'}`}>
+                <button aria-label="אפשרויות חיפוש ומיון" aria-expanded={showFilters} onClick={() => setShowFilters(!showFilters)} className={`p-1.5 transition-colors ${showFilters ? 'text-[#8B7355]' : 'text-[#1C1C1C]/30 hover:text-[#1C1C1C]'}`}>
                   <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 6h18M6 12h12m-9 6h6" strokeLinecap="round"/></svg>
                 </button>
               </div>
             </div>
             {showFilters && (
-              <div className="absolute mt-4 w-full bg-white premium-border p-6 shadow-2xl animate-in fade-in slide-in-from-top-4 duration-500 z-50">
+              <div className="mt-3 w-full bg-white premium-border p-4 rounded-md">
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-[11px] uppercase tracking-[0.1em] font-bold text-[#1C1C1C]/60">
                   <div className="space-y-4">
                     <p className="text-[#8B7355] border-b border-[#8B7355]/10 pb-2">אפשרויות</p>
@@ -348,33 +351,33 @@ const App: React.FC = () => {
                 </div>
               </div>
             )}
-          </div>
+          </div>}
 
-          <div className="desktop-actions flex flex-wrap items-center gap-3">
+          <div className="desktop-actions flex flex-wrap justify-center items-center gap-2">
             {user ? <button onClick={() => signOut(auth).catch(() => alert("ההתנתקות נכשלה"))} className="border px-3 py-2 text-xs">התנתקות · {canEdit ? "עריכה" : "צפייה בלבד"}</button> : <button onClick={login} className="border px-3 py-2 text-xs">כניסה עם Google לעריכה</button>}
-            <button onClick={()=>setShowPlanner(v=>!v)} className="border px-3 py-2 text-xs">תפריט שבועי וקניות</button>
-            {canEdit && <><button onClick={()=>setShowTrash(v=>!v)} className="border px-3 py-2 text-xs">סל מחזור</button><button onClick={()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({recipes,categories,exportedAt:new Date().toISOString()},null,2)],{type:'application/json'}));a.download='sabor-masoret-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}} className="border px-3 py-2 text-xs">גיבוי</button></>}
+            <button onClick={goBook} className={!showPlanner?"bg-[#333A31] text-white px-4 py-2 text-sm":"border px-4 py-2 text-sm"}>ספר המתכונים</button><button onClick={goPlanner} className={showPlanner?"bg-[#333A31] text-white px-4 py-2 text-sm":"border border-[#A68C58] px-4 py-2 text-sm"}>תפריט שבועי וקניות</button>
+            {canEdit && <><button onClick={()=>{goBook();setShowTrash(v=>!v)}} className="border px-3 py-2 text-xs">סל מחזור</button><button onClick={()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({recipes,categories,exportedAt:new Date().toISOString()},null,2)],{type:'application/json'}));a.download='sabor-masoret-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}} className="border px-3 py-2 text-xs">גיבוי</button></>}
             {!canEdit && <span className="text-xs text-[#8B7355]">צפייה בלבד</span>}
             <button disabled={!recipes.length} onClick={() => printCookbook(recipes.filter(r=>!r.deletedAt), categories)} className="border border-[#8B7355] px-3 py-2 text-xs">הדפסת כל הספר / PDF</button>
             {selectedRecipe && <button onClick={() => printCookbook([selectedRecipe], categories, false)} className="border border-[#8B7355] px-3 py-2 text-xs">הדפסת מתכון</button>}
             {canEdit && <><button 
-              onClick={() => setShowImportBar(!showImportBar)} 
+              onClick={() => {goBook();setShowImportBar(!showImportBar)}} 
               className={`p-2 transition-colors ${showImportBar ? 'text-[#8B7355]' : 'text-[#1C1C1C]/40 hover:text-[#1C1C1C]'}`}
               title={t.importFromUrl}
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </button>
-            <button onClick={() => setShowCategoryManager(true)} className="p-2 text-[#1C1C1C]/40 hover:text-[#1C1C1C] transition-colors" title={t.manageCategories}>
+            <button onClick={() => {goBook();setShowCategoryManager(true)}} className="p-2 text-[#1C1C1C]/40 hover:text-[#1C1C1C] transition-colors" title={t.manageCategories}>
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
             </button>
-            <button onClick={() => { setDraft(null); setShowForm(true); setSelectedRecipe(null); setEditingRecipe(null); }} className="bg-[#1C1C1C] text-white px-6 py-3 text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-[#8B7355] transition-all">
+            <button onClick={() => { goBook(); setDraft(null); setShowForm(true); setSelectedRecipe(null); setEditingRecipe(null); }} className="bg-[#1C1C1C] text-white px-6 py-3 text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-[#8B7355] transition-all">
               {t.addRecipe}
             </button></>}
           </div>
         </div>
       </header>
 
-      {showPlanner && <FamilyPlanner recipes={recipes.filter(r=>!r.deletedAt)} onClose={()=>setShowPlanner(false)}/>}
+      {showPlanner ? <main className="max-w-7xl mx-auto"><FamilyPlanner recipes={recipes.filter(r=>!r.deletedAt)} onClose={goBook}/></main> : <>
       {canEdit && showTrash && <section className="max-w-5xl mx-auto border p-5 mb-6 bg-white"><h2 className="serif text-2xl">סל מחזור</h2>{recipes.filter(r=>r.deletedAt).length===0&&<p>אין מתכונים בסל</p>}{recipes.filter(r=>r.deletedAt).map(r=><div key={r.id} className="flex justify-between border-b p-3"><span>{r.he.title}</span><button className="underline" onClick={async()=>{try{await setDoc(doc(db,'recipes',r.id),{deletedAt:null},{merge:true})}catch{alert('השחזור נכשל')}}}>שחזור</button></div>)}</section>}
       {canEdit && showImportBar && (
         <div className="max-w-7xl mx-auto mb-12 animate-in slide-in-from-top-4 duration-500">
@@ -488,8 +491,9 @@ const App: React.FC = () => {
           </div>
         )}
       </main>
-      {mobileMenu&&<div className="mobile-menu md:hidden" role="dialog" aria-label="תפריט"><button onClick={()=>{setMobileMenu(false);installApp()}}>התקנה במסך הבית</button><button onClick={()=>{setMobileMenu(false);printCookbook(recipes.filter(r=>!r.deletedAt),categories)}}>הדפסת הספר</button>{user?<button onClick={()=>{setMobileMenu(false);signOut(auth).catch(()=>alert('ההתנתקות נכשלה'))}}>התנתקות</button>:<button onClick={()=>{setMobileMenu(false);login()}}>כניסה עם Google לעריכה</button>}{canEdit&&<><button onClick={()=>{setMobileMenu(false);setShowImportBar(true);window.scrollTo(0,0)}}>ייבוא מתכון באמצעות AI</button><button onClick={()=>{setMobileMenu(false);setShowCategoryManager(true)}}>ניהול קטגוריות</button><button onClick={()=>{setMobileMenu(false);setShowTrash(true);window.scrollTo(0,0)}}>סל מחזור</button><button onClick={()=>{setMobileMenu(false);const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({recipes,categories},null,2)],{type:'application/json'}));a.download='sabor-masoret-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}}>הורדת גיבוי</button></>}</div>}
-      <nav className="mobile-nav" aria-label="ניווט ראשי"><button onClick={()=>{setMobileMenu(false);setShowPlanner(false);setShowForm(false);setEditingRecipe(null);setDraft(null);setSelectedRecipe(null);setShowImportBar(false);setShowTrash(false);setSelectedCategoryId('all');setSearchQuery('');window.scrollTo(0,0)}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 10l9-7 9 7v10H3z M9 20v-7h6v7"/></svg>ספר</button><button onClick={()=>{setMobileMenu(false);setShowPlanner(v=>!v);window.scrollTo(0,0)}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18"/></svg>תפריט</button><button onClick={()=>{setMobileMenu(false);if(!canEdit){login();return}setDraft(null);setSelectedRecipe(null);setEditingRecipe(null);setShowForm(true);setShowPlanner(false);setShowImportBar(false)}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M7 12h10"/></svg>מתכון חדש</button><button aria-expanded={mobileMenu} onClick={()=>setMobileMenu(v=>!v)}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 6h16M4 12h16M4 18h16"/></svg>עוד</button></nav>
+      </>}
+      {mobileMenu&&<div className="mobile-menu md:hidden" role="dialog" aria-label="תפריט"><button onClick={()=>{setMobileMenu(false);installApp()}}>התקנה במסך הבית</button><button onClick={()=>{setMobileMenu(false);printCookbook(recipes.filter(r=>!r.deletedAt),categories)}}>הדפסת הספר</button>{user?<button onClick={()=>{setMobileMenu(false);signOut(auth).catch(()=>alert('ההתנתקות נכשלה'))}}>התנתקות</button>:<button onClick={()=>{setMobileMenu(false);login()}}>כניסה עם Google לעריכה</button>}{canEdit&&<><button onClick={()=>{goBook();setShowImportBar(true);window.scrollTo(0,0)}}>ייבוא מתכון באמצעות AI</button><button onClick={()=>{goBook();setShowCategoryManager(true)}}>ניהול קטגוריות</button><button onClick={()=>{goBook();setShowTrash(true);window.scrollTo(0,0)}}>סל מחזור</button><button onClick={()=>{setMobileMenu(false);const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({recipes,categories},null,2)],{type:'application/json'}));a.download='sabor-masoret-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}}>הורדת גיבוי</button></>}</div>}
+      <nav className="mobile-nav" aria-label="ניווט ראשי"><button onClick={()=>{goBook();setShowForm(false);setEditingRecipe(null);setDraft(null);setSelectedRecipe(null);setShowImportBar(false);setShowTrash(false);setSelectedCategoryId('all');setSearchQuery('');window.scrollTo(0,0)}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 10l9-7 9 7v10H3z M9 20v-7h6v7"/></svg>ספר</button><button onClick={()=>{goPlanner()}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18"/></svg>תפריט</button><button onClick={()=>{setMobileMenu(false);if(!canEdit){login();return}setDraft(null);setSelectedRecipe(null);setEditingRecipe(null);setShowForm(true);goBook();setShowImportBar(false)}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M7 12h10"/></svg>מתכון חדש</button><button aria-expanded={mobileMenu} onClick={()=>setMobileMenu(v=>!v)}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 6h16M4 12h16M4 18h16"/></svg>עוד</button></nav>
       <div className="hidden md:block"><ScrollToTop /></div>
     </div>
   );
