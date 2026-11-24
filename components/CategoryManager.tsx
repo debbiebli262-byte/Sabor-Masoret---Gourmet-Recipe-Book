@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Category, Language } from '../types';
-import { UI_STRINGS } from '../constants';
+import { UI_STRINGS, categoryLabel } from '../constants';
 
 interface Props {
   categories: Category[];
@@ -14,6 +14,7 @@ interface Props {
 
 const CategoryManager: React.FC<Props> = ({ categories, language, onAdd, onUpdate, onDelete, onClose }) => {
   const t = UI_STRINGS[language];
+  const L=(he:string,sp:string)=>language===Language.ES?sp:he;
   const [newCatHe, setNewCatHe] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -57,13 +58,13 @@ const CategoryManager: React.FC<Props> = ({ categories, language, onAdd, onUpdat
                   <div className="flex-1 mr-4">
                     <input 
                       className="w-full p-2 text-xs border border-[#1C1C1C]/10" 
-                      value={cat[Language.HE]} 
-                      onChange={e => onUpdate({ ...cat, [Language.HE]: e.target.value })} 
+                      value={language===Language.ES?(cat.es||''):cat.he} 
+                      onChange={e => onUpdate({ ...cat, [language]: e.target.value })} 
                     />
                   </div>
                 ) : (
                   <div className="flex flex-col">
-                    <span className="text-xs font-bold text-[#1C1C1C]">{cat[Language.HE]}</span>
+                    <span className="text-xs font-bold text-[#1C1C1C]">{categoryLabel(cat,language)}</span>
                   </div>
                 )}
                 
@@ -72,7 +73,7 @@ const CategoryManager: React.FC<Props> = ({ categories, language, onAdd, onUpdat
                     onClick={() => setEditingId(editingId === cat.id ? null : cat.id)}
                     className="text-[#1C1C1C]/30 hover:text-[#8B7355] text-[10px] font-bold uppercase tracking-widest"
                   >
-                    {editingId === cat.id ? 'OK' : 'ערוך'}
+                    {editingId === cat.id ? 'OK' : L('ערוך','Editar')}
                   </button>
                   <button 
                     onClick={() => onDelete(cat.id)}
