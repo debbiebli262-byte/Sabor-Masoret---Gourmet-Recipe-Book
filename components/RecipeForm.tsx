@@ -8,7 +8,7 @@ interface Props {
   language: Language;
   initialRecipe?: Recipe;
   categories: Category[];
-  onSave: (recipe: Partial<Recipe>) => void;
+  onSave: (recipe: Partial<Recipe>) => Promise<boolean>;
   onCancel: () => void;
   onAddCategory: (cat: Omit<Category, 'id'>) => Promise<Category | null>;
 }
@@ -159,6 +159,10 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, categories, onSa
     }));
   };
 
+  const draftKey = 'sabor-draft-' + (initialRecipe?.id || 'new');
+  const [draftReady, setDraftReady] = useState(false);
+  useEffect(() => { try { const d = localStorage.getItem(draftKey); if (d && window.confirm('לשחזר טיוטה מקומית?')) { const v = JSON.parse(d); setContent(v.content); setCategoryId(v.categoryId); setImage(v.image || ''); } } catch {} setDraftReady(true); }, [draftKey]);
+  useEffect(() => { if (draftReady) { try { localStorage.setItem(draftKey, JSON.stringify({content,categoryId,image})); } catch {} } }, [content,categoryId,image,draftReady,draftKey]);
   const handleAiGen = async () => {
     if (!aiPrompt && !content.title) return;
     setIsGenerating(true);
@@ -338,9 +342,13 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, categories, onSa
           </div>
         </section>
 
-        <section className="space-y-4"><label>{t.notes}</label><textarea className="w-full bg-[#F5F5F0] p-4" value={content.notes || ""} onChange={e => setContent({...content, notes:e.target.value})}/><label>{t.oven}</label><textarea className="w-full bg-[#F5F5F0] p-4" value={content.ovenInstructions || ""} onChange={e => setContent({...content, ovenInstructions:e.target.value})}/></section>
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  {([{key:'prepTime',label:'זמן הכנה'},{key:'cookTime',label:'זמן בישול'},{key:'difficulty',label:'רמת קושי'},{key:'panSize',label:'גודל תבנית'},{key:'storage',label:'אחסון והקפאה'},{key:'credit',label:'מקור / קרדיט'}] as const).map(({key,label})=><label key={key}>{label}<input className="w-full bg-[#F5F5F0] p-3" value={content[key] || ''} onChange={e=>setContent({...content,[key]:e.target.value})}/></label>)}
+  <label>מספר מנות<input type="number" min="1" className="w-full bg-[#F5F5F0] p-3" value={content.servings || ''} onChange={e=>setContent({...content,servings:Number(e.target.value) || 0})}/></label>
+  <label>תגיות (מופרדות בפסיקים)<input className="w-full bg-[#F5F5F0] p-3" value={content.tags?.join(',') || ''} onChange={e=>setContent({...content,tags:e.target.value.split(',')})}/></label>
+  </section><section className="space-y-4"><label>{t.notes}</label><textarea className="w-full bg-[#F5F5F0] p-4" value={content.notes || ""} onChange={e => setContent({...content, notes:e.target.value})}/><label>{t.oven}</label><textarea className="w-full bg-[#F5F5F0] p-4" value={content.ovenInstructions || ""} onChange={e => setContent({...content, ovenInstructions:e.target.value})}/></section>
         <div className="flex gap-4 pt-12 border-t border-[#1C1C1C]/5">
-          <button onClick={() => content.title.trim() ? onSave({ [language]: content, image, categoryId: categoryId || '' }) : alert('יש להזין שם מתכון')} className="flex-1 bg-[#1C1C1C] text-white font-bold py-5 text-xs uppercase tracking-[0.4em] hover:bg-[#8B7355] shadow-2xl transition-all">
+          <button onClick={async () => { if (!content.title.trim()) return alert('יש להזין שם מתכון'); if (await onSave({ [language]: content, image, categoryId: categoryId || '', sourceUrl: initialRecipe?.sourceUrl || '' })) { try { localStorage.removeItem(draftKey); } catch {} } }} className="flex-1 bg-[#1C1C1C] text-white font-bold py-5 text-xs uppercase tracking-[0.4em] hover:bg-[#8B7355] shadow-2xl transition-all">
             {t.save}
           </button>
           <button onClick={onCancel} className="px-10 py-5 text-[#1C1C1C]/40 font-bold text-[10px] uppercase tracking-widest hover:text-[#1C1C1C] transition-all">
