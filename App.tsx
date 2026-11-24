@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Recipe, Language, RecipeContent, Category } from './types';
 import { UI_STRINGS, DEFAULT_CATEGORIES } from './constants';
 import { printCookbook } from './services/printCookbook';
+import CookbookTools from './components/CookbookTools';
 import RecipeForm from './components/RecipeForm';
 import RecipeView from './components/RecipeView';
 import CategoryManager from './components/CategoryManager';
@@ -434,6 +435,7 @@ const App: React.FC = () => {
         />
       )}
 
+      <CookbookTools recipes={recipes} categories={categories}/>
       <main className="max-w-7xl mx-auto">
         {(canEdit && (showForm || editingRecipe)) ? (
           <RecipeForm 
