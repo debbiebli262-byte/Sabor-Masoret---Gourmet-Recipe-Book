@@ -75,6 +75,7 @@ const App: React.FC = () => {
     catch { alert('לא ניתן להתחבר עם Google. בדקי את הגדרות ההתחברות ונסי שוב.'); }
   };
   const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [loadError,setLoadError] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
   const [language, setLanguage] = useState<Language>(Language.HE);
   const [showForm, setShowForm] = useState(false);
@@ -109,8 +110,8 @@ const App: React.FC = () => {
       orderBy('createdAt', 'desc')
     );
     const unsubRecipes = onSnapshot(recipesQuery, async (snapshot) => {
-      if (snapshot.empty && canEdit) {
-        // Seed initial recipes to Firestore if it is completely empty
+      if (false && snapshot.empty && canEdit) {
+        // Do not automatically recreate deleted recipes
         try {
           for (const r of INITIAL_RECIPES) {
             await setDoc(doc(db, 'recipes', r.id), r);
@@ -122,7 +123,7 @@ const App: React.FC = () => {
         const docs = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Recipe));
         setRecipes(docs);
       }
-    });
+    }, () => setLoadError('לא ניתן לטעון מתכונים מ-Firebase. בדקי את החיבור וההרשאות.'));
 
     const categoriesQuery = query(collection(db, 'categories'));
     const unsubCategories = onSnapshot(categoriesQuery, async (snapshot) => {
@@ -139,7 +140,7 @@ const App: React.FC = () => {
         const docs = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Category));
         setCategories(docs);
       }
-    });
+    }, () => setLoadError('לא ניתן לטעון קטגוריות מ-Firebase.'));
 
     return () => {
       unsubRecipes();
@@ -436,6 +437,7 @@ const App: React.FC = () => {
         />
       )}
 
+      {loadError && <p role="alert" className="bg-red-50 text-red-800 p-4 mb-4">{loadError}</p>}
       <CookbookTools recipes={recipes} categories={categories}/>
       <main className="max-w-7xl mx-auto">
         {(canEdit && (showForm || editingRecipe)) ? (
