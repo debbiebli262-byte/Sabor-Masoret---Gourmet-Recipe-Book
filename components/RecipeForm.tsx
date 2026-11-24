@@ -10,7 +10,7 @@ interface Props {
   categories: Category[];
   onSave: (recipe: Partial<Recipe>) => void;
   onCancel: () => void;
-  onAddCategory: (cat: Omit<Category, 'id'>) => Category;
+  onAddCategory: (cat: Omit<Category, 'id'>) => Promise<Category | null>;
 }
 
 const UnitSelect: React.FC<{
@@ -122,7 +122,7 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, categories, onSa
       id: Math.random().toString(36).substr(2, 9),
       name: '',
       amount: 1,
-      unit: 'units',
+      unit: 'gram',
       category: t.ingredientCategories[0]
     };
     setContent(prev => ({ ...prev, ingredients: [...(prev.ingredients || []), newIng] }));
@@ -177,11 +177,12 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, categories, onSa
     }
   };
 
-  const handleQuickAddCategory = () => {
+  const handleQuickAddCategory = async () => {
     if (quickCatHe.trim()) {
-      const newCat = onAddCategory({
+      const newCat = await onAddCategory({
         [Language.HE]: quickCatHe
       });
+      if (!newCat) { alert('הוספת הקטגוריה נכשלה'); return; }
       setCategoryId(newCat.id);
       setIsAddingQuickCategory(false);
       setQuickCatHe('');
@@ -337,8 +338,9 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, categories, onSa
           </div>
         </section>
 
+        <section className="space-y-4"><label>{t.notes}</label><textarea className="w-full bg-[#F5F5F0] p-4" value={content.notes || ""} onChange={e => setContent({...content, notes:e.target.value})}/><label>{t.oven}</label><textarea className="w-full bg-[#F5F5F0] p-4" value={content.ovenInstructions || ""} onChange={e => setContent({...content, ovenInstructions:e.target.value})}/></section>
         <div className="flex gap-4 pt-12 border-t border-[#1C1C1C]/5">
-          <button onClick={() => onSave({ [language]: content, image, categoryId })} className="flex-1 bg-[#1C1C1C] text-white font-bold py-5 text-xs uppercase tracking-[0.4em] hover:bg-[#8B7355] shadow-2xl transition-all">
+          <button onClick={() => content.title.trim() ? onSave({ [language]: content, image, categoryId: categoryId || '' }) : alert('יש להזין שם מתכון')} className="flex-1 bg-[#1C1C1C] text-white font-bold py-5 text-xs uppercase tracking-[0.4em] hover:bg-[#8B7355] shadow-2xl transition-all">
             {t.save}
           </button>
           <button onClick={onCancel} className="px-10 py-5 text-[#1C1C1C]/40 font-bold text-[10px] uppercase tracking-widest hover:text-[#1C1C1C] transition-all">
