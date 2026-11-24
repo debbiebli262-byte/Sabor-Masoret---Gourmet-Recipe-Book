@@ -1,7 +1,7 @@
 import { Recipe, Category, Language } from '../types';
 import { UNITS } from '../constants';
 
-type Options = {paper?: 'A4'|'A5', photos?: boolean};
+type Options = {paper?: 'A4'|'A5', photos?: boolean; language?: 'es'};
 const esc = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 const ornament = '<span class="ornament" aria-hidden="true">❦</span>';
 const number = (n:number) => String(n).padStart(2,'0');
@@ -21,6 +21,9 @@ export function printCookbook(recipes: Recipe[], categories: Category[], book = 
   w.opener=null;
   const sections=groups(ordered,cat);
   const photos=options.photos!==false;
+  const es=options.language==='es';
+  const tr=(he:string,spanish:string)=>es?spanish:he;
+  const unitLabel=(u:string)=>es?(({gram:'g',kg:'kg',ml:'ml',liters:'l',cup:'taza',tsp:'cdta.',tbsp:'cda.',units:'unidad',pinch:'pizca',drizzle:'chorrito'} as Record<string,string>)[u]||u):(UNITS[u]?.[Language.HE]||u);
   const brand='<div class="brand" dir="ltr">SABOR <i>&amp;</i> MASORET</div>';
   const toc=sections.map((g,j)=>'<div class="toc-group"><div class="toc-heading"><span>'+number(j+1)+'</span><h2>'+esc(g.name)+'</h2></div>'+g.items.map(r=>'<a class="toc-row" href="#recipe-'+ordered.indexOf(r)+'"><span>'+esc(r.he.title)+'</span><span class="dots"></span><span class="index">'+number(ordered.indexOf(r)+1)+'</span></a>').join('')+'</div>').join('');
   const renderRecipe=(r:Recipe)=>{
@@ -28,13 +31,13 @@ export function printCookbook(recipes: Recipe[], categories: Category[], book = 
     const index=ordered.indexOf(r);
     const meta=c as typeof c & {servings?:number;prepTime?:string;cookTime?:string;difficulty?:string;panSize?:string;storage?:string;credit?:string;tags?:string[]};
     const pic=photo(r,photos,'hero-photo');
-    const ing=groups(c.ingredients||[],i=>i.category||'כללי').map(g=>'<div class="ingredient-group">'+(g.name!=='כללי'?'<h3>'+esc(g.name)+'</h3>':'')+g.items.map(i=>'<div class="ingredient"><span>'+esc(i.name)+'</span><strong>'+esc(Math.round(i.amount*scale*100)/100)+' <small>'+esc(UNITS[i.unit]?.[Language.HE]||i.unit)+'</small></strong></div>').join('')+'</div>').join('');
+    const ing=groups(c.ingredients||[],i=>i.category||'כללי').map(g=>'<div class="ingredient-group">'+(g.name!=='כללי'?'<h3>'+esc(g.name)+'</h3>':'')+g.items.map(i=>'<div class="ingredient"><span>'+esc(i.name)+'</span><strong>'+esc(Math.round(i.amount*scale*100)/100)+' <small>'+esc(unitLabel(i.unit))+'</small></strong></div>').join('')+'</div>').join('');
     let step=0;
     const steps=groups(c.instructions||[],i=>i.category||'כללי').map(g=>'<div class="step-group">'+(!['כללי','General','Général'].includes(g.name)?'<h3>'+esc(g.name)+'</h3>':'')+g.items.map(i=>'<div class="step"><b>'+number(++step)+'</b><p>'+esc(i.text)+'</p></div>').join('')+'</div>').join('');
     const facts=[['מנות',meta.servings?String(Math.round(meta.servings*scale*100)/100):scale!==1?'× '+scale:''],['הכנה',meta.prepTime],['בישול',meta.cookTime],['קושי',meta.difficulty],['תבנית',meta.panSize]].filter(x=>x[1]);
-    const notes=[['הוראות תנור',c.ovenInstructions],['הערות השף',c.notes],['אחסון והקפאה',meta.storage]].filter(x=>x[1]).map(x=>'<aside class="note"><h3>'+esc(x[0])+'</h3><p>'+esc(x[1])+'</p></aside>').join('');
+    const notes=[[tr('הוראות תנור','Horno'),c.ovenInstructions],[tr('הערות השף','Notas'),c.notes],[tr('אחסון והקפאה','Conservación'),meta.storage]].filter(x=>x[1]).map(x=>'<aside class="note"><h3>'+esc(x[0])+'</h3><p>'+esc(x[1])+'</p></aside>').join('');
     const source=r.sourceUrl&&/^https?:\/\//i.test(r.sourceUrl)?'<a href="'+esc(r.sourceUrl)+'">למקור המתכון</a>':'';
-    return '<article class="recipe sheet" id="recipe-'+index+'"><div class="running">'+brand+'<span>'+esc(cat(r))+(book?' / '+number(index+1):'')+'</span></div><header class="recipe-head"><div class="eyebrow">מתוך המטבח שלנו</div><h1>'+esc(c.title)+'</h1><div class="rule">'+ornament+'</div>'+(c.description?'<p class="intro">'+esc(c.description)+'</p>':'')+'</header>'+pic+(facts.length?'<div class="facts">'+facts.map(x=>'<div><small>'+esc(x[0])+'</small><b>'+esc(x[1])+'</b></div>').join('')+'</div>':'')+'<div class="recipe-body"><section class="ingredients"><h2><span>01</span> מצרכים</h2>'+ing+'</section><section class="directions"><h2><span>02</span> אופן ההכנה</h2>'+steps+'</section></div>'+ (notes?'<div class="notes">'+notes+'</div>':'')+(source||meta.credit?'<div class="credit">'+esc(meta.credit)+' '+source+'</div>':'')+'<footer class="recipe-footer">'+ornament+'<span>בתיאבון • Buen provecho</span></footer></article>';
+    return '<article class="recipe sheet" id="recipe-'+index+'"><div class="running">'+brand+'<span>'+esc(cat(r))+(book?' / '+number(index+1):'')+'</span></div><header class="recipe-head"><div class="eyebrow">'+tr('מתוך המטבח שלנו','De nuestra cocina')+'</div><h1>'+esc(c.title)+'</h1><div class="rule">'+ornament+'</div>'+(c.description?'<p class="intro">'+esc(c.description)+'</p>':'')+'</header>'+pic+(facts.length?'<div class="facts">'+facts.map(x=>'<div><small>'+esc(x[0])+'</small><b>'+esc(x[1])+'</b></div>').join('')+'</div>':'')+'<div class="recipe-body"><section class="ingredients"><h2><span>01</span> '+tr('מצרכים','Ingredientes')+'</h2>'+ing+'</section><section class="directions"><h2><span>02</span> '+tr('אופן ההכנה','Preparación')+'</h2>'+steps+'</section></div>'+ (notes?'<div class="notes">'+notes+'</div>':'')+(source||meta.credit?'<div class="credit">'+esc(meta.credit)+' '+source+'</div>':'')+'<footer class="recipe-footer">'+ornament+'<span>בתיאבון • Buen provecho</span></footer></article>';
   };
   const cover=book?'<section class="cover sheet"><div class="cover-frame"><div class="eyebrow" dir="ltr">THE FAMILY COLLECTION</div>'+ornament+'<div class="cover-title" dir="ltr">SABOR<br><i>&amp;</i><br>MASORET</div><div class="cover-sub">טעם ומסורת</div><div class="cover-line"></div><p>ספר המתכונים המשפחתי</p><div class="cover-gallery">'+ordered.filter(r=>photo(r,photos,'')).slice(0,3).map(r=>photo(r,photos,'cover-photo')).join('')+'</div><div class="edition" dir="ltr">L’ART DE LA CUISINE</div><small>'+ordered.length+' מתכונים · '+sections.length+' פרקים</small></div></section><section class="contents sheet"><div class="running">'+brand+'<span>INDEX</span></div><div class="eyebrow">המתכונים שלנו</div><h1>תוכן עניינים</h1><div class="rule">'+ornament+'</div><p class="toc-note">המספרים מציינים את סדר המתכונים בספר.</p>'+toc+'</section>':'';
   const pages=sections.map((g,j)=>(book?'<section class="chapter sheet"><div class="running">'+brand+'<span>CHAPTER '+number(j+1)+'</span></div><div class="chapter-center"><div class="chapter-no">'+number(j+1)+'</div>'+ornament+'<div class="eyebrow">פרק '+(j+1)+'</div><h1>'+esc(g.name)+'</h1><div class="rule"></div><p>'+g.items.length+' מתכונים</p>'+photo(g.items.find(r=>photo(r,photos,'')),photos,'chapter-photo')+'</div></section>':'')+g.items.map(renderRecipe).join('')).join('');
@@ -45,7 +48,7 @@ export function printCookbook(recipes: Recipe[], categories: Category[], book = 
 @media screen{.sheet{max-width:${options.paper==='A5'?'148mm':'210mm'};margin:18px auto;padding:14mm 15mm;box-shadow:0 3px 18px #0002}.cover-frame{min-height:${options.paper==='A5'?'165mm':'235mm'}}}
 @media print{html{background:white}.toolbar{display:none!important}.sheet{margin:0;padding:0;max-width:none;box-shadow:none}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}.recipe-head,.facts,.hero-photo{break-inside:avoid}.step{break-inside:auto}.step b{break-after:avoid}}
 `;
-  w.document.write('<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(book?'Sabor & Masoret':ordered[0].he.title)+'</title><style>'+css+'</style></head><body><div class="toolbar"><button id="print">הדפסה / שמירה כ-PDF</button><label><input type="checkbox" id="photos" '+(photos?'checked':'')+'> תמונות</label><button id="close">סגירה</button></div><main>'+cover+pages+'</main></body></html>');
+  w.document.write('<!doctype html><html lang="'+(es?'es':'he')+'" dir="'+(es?'ltr':'rtl')+'"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(book?'Sabor & Masoret':ordered[0].he.title)+'</title><style>'+css+'</style></head><body><div class="toolbar"><button id="print">הדפסה / שמירה כ-PDF</button><label><input type="checkbox" id="photos" '+(photos?'checked':'')+'> תמונות</label><button id="close">סגירה</button></div><main>'+cover+pages+'</main></body></html>');
   w.document.close();
   w.document.getElementById('print')?.addEventListener('click',()=>w.print());
   w.document.getElementById('close')?.addEventListener('click',()=>w.close());
