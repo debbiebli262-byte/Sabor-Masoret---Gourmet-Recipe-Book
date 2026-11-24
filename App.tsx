@@ -33,8 +33,8 @@ const RecipeCard = React.memo(({ recipe, language, onClick, categories, onUpdate
   const catLabel = category ? category[language] : UI_STRINGS[language].uncategorized;
 
   return (
-    <div onClick={onClick} className="group cursor-pointer flex flex-col items-center">
-      <div className="relative w-full aspect-[4/5] overflow-hidden mb-8 transition-all duration-700 shadow-sm will-change-transform">
+    <div onClick={onClick} className="mobile-card group cursor-pointer flex flex-col items-center">
+      <div className="card-photo relative w-full aspect-[4/5] overflow-hidden mb-8 transition-all duration-700 shadow-sm will-change-transform">
         {recipe.image ? (
           <img 
             src={recipe.image} 
@@ -47,7 +47,7 @@ const RecipeCard = React.memo(({ recipe, language, onClick, categories, onUpdate
         )}
         <div className="absolute inset-0 bg-[#1C1C1C]/0 group-hover:bg-[#1C1C1C]/5 transition-colors duration-700"></div>
       </div>
-      <div className="text-center space-y-3">
+      <div className="card-caption text-center space-y-3">
         <p className="text-[9px] uppercase tracking-[0.4em] text-[#8B7355] font-bold">{catLabel}</p>
         <h3 className="serif text-3xl text-[#1C1C1C] group-hover:italic transition-all">
           {content?.title || 'ללא שם'}
@@ -84,6 +84,10 @@ const App: React.FC = () => {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | 'all'>('all');
 
   const [draft,setDraft]=useState<Recipe|null>(null);
+  const [mobileMenu,setMobileMenu]=useState(false);
+  const [installEvent,setInstallEvent]=useState<any>(null);
+  useEffect(()=>{const onPrompt=(e:Event)=>{e.preventDefault();setInstallEvent(e)};const installed=()=>setInstallEvent(null);window.addEventListener('beforeinstallprompt',onPrompt);window.addEventListener('appinstalled',installed);return()=>{window.removeEventListener('beforeinstallprompt',onPrompt);window.removeEventListener('appinstalled',installed)}},[]);
+  const installApp=async()=>{if(installEvent){await installEvent.prompt();setInstallEvent(null)}else alert('ב-Chrome באנדרואיד: לחצי על ⋮ ובחרי הוספה למסך הבית או התקנת אפליקציה. אם האפשרות אינה מופיעה, פתחי את האתר בדפדפן Chrome.')};
   const [showPlanner,setShowPlanner]=useState(false);
   const [importFile,setImportFile]=useState<{mimeType:string;data:string}|null>(null);
   const [fileName,setFileName]=useState('');
@@ -289,9 +293,9 @@ const App: React.FC = () => {
   }, [recipes, debouncedQuery, searchInTitle, searchInIngredients, sortOption, selectedCategoryId]);
 
   return (
-    <div className="min-h-screen pb-32 px-4 md:px-12 transition-colors duration-700 rtl font-heebo">
+    <div className="mobile-main min-h-screen pb-32 px-3 md:px-12 transition-colors duration-700 rtl font-heebo">
       <header className="glass-header sticky top-0 z-50 py-6 mb-8">
-        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row justify-between items-center gap-8">
+        <div className="header-layout max-w-7xl mx-auto flex flex-col lg:flex-row justify-between items-center gap-8">
           <div className="flex flex-col items-center lg:items-start">
             <h1 
               className="serif text-3xl md:text-4xl font-light tracking-widest text-[#1C1C1C] cursor-pointer hover:opacity-70 transition-opacity uppercase"
@@ -346,7 +350,7 @@ const App: React.FC = () => {
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="desktop-actions flex flex-wrap items-center gap-3">
             {user ? <button onClick={() => signOut(auth).catch(() => alert("ההתנתקות נכשלה"))} className="border px-3 py-2 text-xs">התנתקות · {canEdit ? "עריכה" : "צפייה בלבד"}</button> : <button onClick={login} className="border px-3 py-2 text-xs">כניסה עם Google לעריכה</button>}
             <button onClick={()=>setShowPlanner(v=>!v)} className="border px-3 py-2 text-xs">תפריט שבועי וקניות</button>
             {canEdit && <><button onClick={()=>setShowTrash(v=>!v)} className="border px-3 py-2 text-xs">סל מחזור</button><button onClick={()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({recipes,categories,exportedAt:new Date().toISOString()},null,2)],{type:'application/json'}));a.download='sabor-masoret-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}} className="border px-3 py-2 text-xs">גיבוי</button></>}
@@ -401,7 +405,7 @@ const App: React.FC = () => {
 
       {/* Category Tabs */}
       {!showForm && !editingRecipe && !selectedRecipe && (
-        <div className="max-w-7xl mx-auto mb-16 overflow-x-auto">
+        <div className="mobile-category-tabs max-w-7xl mx-auto mb-16 overflow-x-auto">
           <div className="flex gap-8 border-b border-[#1C1C1C]/5 pb-4 min-w-max items-center">
             <button 
               onClick={() => setSelectedCategoryId('all')}
@@ -466,7 +470,7 @@ const App: React.FC = () => {
             />
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-16 animate-in fade-in duration-1000">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 md:gap-10 lg:gap-16 animate-in fade-in duration-1000">
             {processedRecipes.length === 0 ? (
               <div className="col-span-full py-40 text-center text-[#1C1C1C]/20 serif italic text-3xl">אין עדיין מתכונים...</div>
             ) : (
@@ -484,7 +488,9 @@ const App: React.FC = () => {
           </div>
         )}
       </main>
-      <ScrollToTop />
+      {mobileMenu&&<div className="mobile-menu md:hidden" role="dialog" aria-label="תפריט"><button onClick={()=>{setMobileMenu(false);installApp()}}>התקנה במסך הבית</button><button onClick={()=>{setMobileMenu(false);printCookbook(recipes.filter(r=>!r.deletedAt),categories)}}>הדפסת הספר</button>{user?<button onClick={()=>{setMobileMenu(false);signOut(auth).catch(()=>alert('ההתנתקות נכשלה'))}}>התנתקות</button>:<button onClick={()=>{setMobileMenu(false);login()}}>כניסה עם Google לעריכה</button>}{canEdit&&<><button onClick={()=>{setMobileMenu(false);setShowImportBar(true);window.scrollTo(0,0)}}>ייבוא מתכון באמצעות AI</button><button onClick={()=>{setMobileMenu(false);setShowCategoryManager(true)}}>ניהול קטגוריות</button><button onClick={()=>{setMobileMenu(false);setShowTrash(true);window.scrollTo(0,0)}}>סל מחזור</button><button onClick={()=>{setMobileMenu(false);const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({recipes,categories},null,2)],{type:'application/json'}));a.download='sabor-masoret-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}}>הורדת גיבוי</button></>}</div>}
+      <nav className="mobile-nav" aria-label="ניווט ראשי"><button onClick={()=>{setMobileMenu(false);setShowPlanner(false);setShowForm(false);setEditingRecipe(null);setDraft(null);setSelectedRecipe(null);setShowImportBar(false);setShowTrash(false);setSelectedCategoryId('all');setSearchQuery('');window.scrollTo(0,0)}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 10l9-7 9 7v10H3z M9 20v-7h6v7"/></svg>ספר</button><button onClick={()=>{setMobileMenu(false);setShowPlanner(v=>!v);window.scrollTo(0,0)}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18"/></svg>תפריט</button><button onClick={()=>{setMobileMenu(false);if(!canEdit){login();return}setDraft(null);setSelectedRecipe(null);setEditingRecipe(null);setShowForm(true);setShowPlanner(false);setShowImportBar(false)}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M7 12h10"/></svg>מתכון חדש</button><button aria-expanded={mobileMenu} onClick={()=>setMobileMenu(v=>!v)}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 6h16M4 12h16M4 18h16"/></svg>עוד</button></nav>
+      <div className="hidden md:block"><ScrollToTop /></div>
     </div>
   );
 };
