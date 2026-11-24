@@ -8,6 +8,6 @@ async function request(body:object){
  if(!response.ok)throw new Error(data.error||'שגיאת ייבוא');
  return data;
 }
-export async function importRecipeFromUrl(url:string,language:Language,caption='',file?:{mimeType:string;data:string}):Promise<RecipeContent|null>{return (await request({action:'import',url,language,caption,file})).recipe}
+export async function importRecipeFromUrl(url:string,language:Language|'auto',caption='',file?:{mimeType:string;data:string}):Promise<RecipeContent|null>{return (await request({action:'import',url,language,caption,file})).recipe}
 export async function translateRecipe(content:RecipeContent,language:Language|'es'):Promise<RecipeContent|null>{return (await request({action:'translate',content,language})).recipe}
 export async function generateRecipeImage(prompt:string):Promise<string|null>{try{return (await request({action:'image',prompt})).image}catch(e){alert(e instanceof Error?e.message:'יצירת תמונה נכשלה');return null}}
