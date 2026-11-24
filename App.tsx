@@ -326,7 +326,7 @@ const App: React.FC = () => {
             >
               SABOR & MASORET
             </h1>
-            <span className="text-[10px] tracking-[0.3em] uppercase text-[#8B7355] mt-1 font-semibold">L'Art de la Cuisine</span><div className="flex gap-2 mt-3" dir="ltr">{[Language.HE,Language.ES].map(lang=><button key={lang} aria-pressed={language===lang} className={(language===lang?'bg-[#333A31] text-white':'border border-[#D7C8A9]')+' px-4 py-2 text-sm'} onClick={()=>setLanguage(lang)}>{lang===Language.HE?'עברית':'Español'}</button>)}</div>
+            <span className="text-[10px] tracking-[0.3em] uppercase text-[#8B7355] mt-1 font-semibold">L'Art de la Cuisine</span><div className="flex gap-2 mt-3" dir="ltr">{[Language.HE,Language.ES].map(lang=><button key={lang} aria-pressed={language===lang} className={(language===lang?'bg-[#333A31] text-white':'border border-[#D7C8A9]')+' px-4 py-2 text-sm'} onClick={()=>setLanguage(lang)}>{lang===Language.HE?'עברית':'Castellano'}</button>)}</div>
           </div>
           
           {!showPlanner && <div className="search-area max-w-2xl w-full">
