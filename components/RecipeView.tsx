@@ -16,7 +16,21 @@ interface Props {
 
 const RecipeView: React.FC<Props> = ({ recipe, language, onUpdate, onEdit, onDelete, canEdit }) => {
   const t = UI_STRINGS[language];
-  const content = recipe[language];
+  const [spanish,setSpanish]=useState(false);
+  const [translated,setTranslated]=useState<RecipeContent|null>(null);
+  const [translating,setTranslating]=useState(false);
+  const [cooking,setCooking]=useState(false);
+  const [checked,setChecked]=useState<string[]>([]);
+  const [stepIndex,setStepIndex]=useState(0);
+  const [minutes,setMinutes]=useState(5);
+  const [deadline,setDeadline]=useState(0);
+  const [remaining,setRemaining]=useState(0);
+  const content = spanish ? (translated||recipe.es||recipe.he) : recipe.he;
+  useEffect(()=>{setSpanish(false);setTranslated(null);setCooking(false);setChecked([]);setStepIndex(0);setDeadline(0);setRemaining(0)},[recipe.id]);
+  useEffect(()=>{if(!deadline)return;const tick=()=>{const left=Math.max(0,Math.ceil((deadline-Date.now())/1000));setRemaining(left);if(!left)setDeadline(0)};tick();const id=window.setInterval(tick,250);return()=>clearInterval(id)},[deadline]);
+  useEffect(()=>{if(!cooking)return;let lock:any;let active=true;const acquire=async()=>{try{if(document.visibilityState==='visible'){const next=await (navigator as any).wakeLock?.request('screen');if(active)lock=next;else await next?.release()}}catch{}};acquire();document.addEventListener('visibilitychange',acquire);return()=>{active=false;document.removeEventListener('visibilitychange',acquire);lock?.release().catch(()=>{})}},[cooking]);
+  const switchSpanish=async()=>{if(spanish){setSpanish(false);return}if(recipe.es||translated){setSpanish(true);return}if(!canEdit)return;setTranslating(true);try{const result=await translateRecipe(recipe.he,'es');if(result){setTranslated(result);setSpanish(true);onUpdate({...recipe,es:result})}}catch(e){alert(e instanceof Error?e.message:'התרגום נכשל')}finally{setTranslating(false)}};
+
   const [isGeneratingImg, setIsGeneratingImg] = useState(false);
   const [scale, setScale] = useState<number>(1);
 
@@ -42,6 +56,7 @@ const RecipeView: React.FC<Props> = ({ recipe, language, onUpdate, onEdit, onDel
   const getUnitLabel = (unitKey: string) => {
     if (!unitKey) return '';
     const unit = UNITS[unitKey as Unit] || UNITS[unitKey] || null;
+    if(spanish)return ({gram:'g',kg:'kg',ml:'ml',liters:'l',cup:'taza',tsp:'cdta.',tbsp:'cda.',units:'unidad',pinch:'pizca',drizzle:'chorrito'} as Record<string,string>)[unitKey]||unitKey;
     if (unit) return unit[language];
     return unitKey;
   };
@@ -79,12 +94,12 @@ const RecipeView: React.FC<Props> = ({ recipe, language, onUpdate, onEdit, onDel
     <div id={`recipe-${recipe.id}`} className="max-w-5xl mx-auto bg-white shadow-[0_40px_100px_rgba(0,0,0,0.05)] border-[0.5px] border-[#1C1C1C]/5 mb-16 overflow-hidden animate-in fade-in slide-in-from-bottom-12 duration-1000 will-change-transform">
       
       {/* Editorial Header Image - Height reduced for PDF efficiency */}
-      <div className="relative h-[400px] overflow-hidden group/header">
+      <div className="relative h-[300px] md:h-[470px] overflow-hidden group/header">
         {recipe.image ? (
           <img 
             src={recipe.image} 
             loading="lazy"
-            className="w-full h-full object-cover grayscale-[0.3] hover:grayscale-0 transition-all duration-[2s] scale-105 hover:scale-100" 
+            className="w-full h-full object-cover  transition-all duration-[2s] scale-105 hover:scale-100" 
             alt={content.title} 
           />
         ) : (
@@ -140,13 +155,16 @@ const RecipeView: React.FC<Props> = ({ recipe, language, onUpdate, onEdit, onDel
         <div className="absolute inset-0 bg-gradient-to-t from-[#1C1C1C]/70 via-transparent to-transparent pointer-events-none"></div>
         
         <div className="absolute bottom-10 left-10 right-10 pointer-events-none">
-          <span className="text-[9px] uppercase tracking-[0.5em] text-white/70 font-bold mb-2 block">מתכון נבחר</span>
+          <span className="text-[9px] uppercase tracking-[0.5em] text-white/70 font-bold mb-2 block">SABOR & MASORET</span>
           <h1 className="serif text-4xl md:text-6xl text-white font-light tracking-tight leading-none">{content.title}</h1>
           <div className="w-16 h-[1px] bg-white/40 mt-4"></div>
         </div>
       </div>
 
       <div className="p-8 md:p-12">
+        <div className="flex flex-wrap justify-center gap-3 mb-6 print:hidden"><button className="border border-[#A68C58] px-4 py-2 text-sm" onClick={()=>setCooking(v=>!v)}>מצב בישול</button>{(canEdit||recipe.es||translated)&&<button className="border border-[#A68C58] px-4 py-2 text-sm" disabled={translating} onClick={switchSpanish}>{translating?'מתרגם...':spanish?'עברית':'Español'}</button>}{spanish&&<button className="border px-4 py-2 text-sm" onClick={()=>printCookbook([{...recipe,he:content}],[],false,scale,{language:'es'})}>Imprimir en español</button>}</div>
+        {cooking&&<section role="dialog" aria-label="מצב בישול" className="fixed inset-0 z-[100] bg-[#FAF9F6] overflow-y-auto p-5 md:p-12"><div className="max-w-3xl mx-auto space-y-6"><div className="flex justify-between items-center"><h2 className="serif text-3xl">{content.title}</h2><button className="border p-2" onClick={()=>setCooking(false)}>סיום</button></div><h3 className="serif text-xl">מצרכים</h3>{content.ingredients.map(i=><label className="flex gap-3 border-b py-2 text-lg" key={i.id}><input type="checkbox" checked={checked.includes(i.id)} onChange={e=>setChecked(p=>e.target.checked?[...p,i.id]:p.filter(x=>x!==i.id))}/><span className={checked.includes(i.id)?'line-through opacity-50':''}>{i.name} · {formatAmount(i.amount)} {getUnitLabel(i.unit)}</span></label>)}<div className="border border-[#A68C58] p-6"><h3 className="text-[#806A47]">שלב {Math.min(stepIndex+1,content.instructions.length)} מתוך {content.instructions.length}</h3><p className="text-2xl leading-relaxed my-6 whitespace-pre-wrap">{content.instructions[stepIndex]?.text||'אין הוראות הכנה'}</p><div className="flex justify-between"><button disabled={!stepIndex} className="border p-3 disabled:opacity-30" onClick={()=>setStepIndex(i=>i-1)}>הקודם</button><button disabled={stepIndex>=content.instructions.length-1} className="bg-[#333A31] text-white p-3 disabled:opacity-30" onClick={()=>setStepIndex(i=>i+1)}>הבא</button></div></div><div className="border p-4 flex flex-wrap items-center gap-3"><label>דקות <input type="number" min="1" max="180" value={minutes} onChange={e=>setMinutes(+e.target.value)} className="w-20 border p-2"/></label><button disabled={!Number.isFinite(minutes)||minutes<=0||minutes>180} className="border p-2" onClick={()=>{setRemaining(Math.ceil(minutes*60));setDeadline(Date.now()+minutes*60000)}}>הפעל טיימר</button><strong className="text-2xl" aria-live={remaining===0?'polite':'off'}>{Math.floor(remaining/60)}:{String(remaining%60).padStart(2,'0')}</strong><button className="border p-2" onClick={()=>{setDeadline(0);setRemaining(0)}}>איפוס</button></div><p className="text-xs">המסך יישאר פעיל במכשירים תומכים כל עוד מצב הבישול פתוח. הטיימר חזותי.</p></div></section>}
+
         {/* Intro Description & Scaling Controls */}
         <div className="max-w-2xl mx-auto text-center mb-10 space-y-8">
           <p className="serif text-xl italic text-[#1C1C1C]/70 leading-relaxed font-light">
@@ -180,11 +198,11 @@ const RecipeView: React.FC<Props> = ({ recipe, language, onUpdate, onEdit, onDel
           
           {/* Ingredients Column */}
           <div className="lg:col-span-4 border-l-[0.5px] border-[#1C1C1C]/10 pl-6">
-            <h2 className="serif text-lg uppercase tracking-widest text-[#8B7355] mb-6 font-bold italic">{t.ingredients}</h2>
+            <h2 className="serif text-lg uppercase tracking-widest text-[#8B7355] mb-6 font-bold italic">{spanish?"Ingredientes":t.ingredients}</h2>
             <div className="space-y-4">
               {Object.entries(groupedIngredients).map(([cat, ings]: [string, any]) => (
                 <div key={cat} className="space-y-2">
-                  <h3 className="text-[9px] font-bold text-[#1C1C1C]/40 uppercase tracking-[0.3em] border-b border-[#1C1C1C]/5 pb-1">{cat}</h3>
+                  {!['כללי','General','Général'].includes(cat)&&<h3 className="text-xs font-bold text-[#806A47] border-b pb-1">{cat}</h3>}
                   <ul className="space-y-1">
                     {ings.map((ing: any) => (
                       <li key={ing.id} className="flex justify-between items-baseline group">
@@ -202,18 +220,18 @@ const RecipeView: React.FC<Props> = ({ recipe, language, onUpdate, onEdit, onDel
 
           {/* Preparation Column */}
           <div className="lg:col-span-8">
-            <h2 className="serif text-lg uppercase tracking-widest text-[#8B7355] mb-6 font-bold italic">{t.instructions}</h2>
+            <h2 className="serif text-lg uppercase tracking-widest text-[#8B7355] mb-6 font-bold italic">{spanish?"Preparación":t.instructions}</h2>
             <div className="space-y-6">
               {Object.entries(groupedInstructions).map(([cat, steps]: [string, any]) => (
                 <div key={cat} className="space-y-4">
-                  <div className="flex items-center gap-4 mb-2">
+                  {!['כללי','General','Général'].includes(cat)&&<div className="flex items-center gap-4 mb-2">
                     <h3 className="text-[9px] font-bold text-[#1C1C1C]/40 uppercase tracking-[0.3em] whitespace-nowrap">{cat}</h3>
                     <div className="w-full h-[0.5px] bg-[#1C1C1C]/5"></div>
-                  </div>
+                  </div>}
                   <div className="space-y-4">
                     {steps.map((step: any, idx: number) => (
                       <div key={step.id} className="relative group flex gap-4">
-                        <span className="serif text-3xl text-[#F5F5F0] font-light leading-none select-none">
+                        <span className="serif text-3xl text-[#A68C58] font-light leading-none select-none">
                           {idx + 1}
                         </span>
                         <p className="text-base text-[#1C1C1C] leading-relaxed font-light">
