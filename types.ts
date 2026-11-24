@@ -28,6 +28,7 @@ export interface PrepStep {
 }
 
 export interface RecipeContent {
+  sourceLanguage?: 'he'|'es';
   suggestedCategory?: string;
   title: string;
   description: string;
@@ -38,6 +39,7 @@ export interface RecipeContent {
 }
 
 export interface Recipe {
+  originalLanguage?: 'he'|'es';
   sourceUrl?: string;
   id: string;
   image?: string;
