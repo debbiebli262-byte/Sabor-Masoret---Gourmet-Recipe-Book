@@ -7,13 +7,14 @@ import { printCookbook } from '../services/printCookbook';
 
 interface Props {
   recipe: Recipe;
+  canEdit: boolean;
   language: Language;
   onUpdate: (updated: Recipe) => void;
   onEdit: () => void;
   onDelete: () => void;
 }
 
-const RecipeView: React.FC<Props> = ({ recipe, language, onUpdate, onEdit, onDelete }) => {
+const RecipeView: React.FC<Props> = ({ recipe, language, onUpdate, onEdit, onDelete, canEdit }) => {
   const t = UI_STRINGS[language];
   const content = recipe[language];
   const [isGeneratingImg, setIsGeneratingImg] = useState(false);
@@ -24,7 +25,7 @@ const RecipeView: React.FC<Props> = ({ recipe, language, onUpdate, onEdit, onDel
       e.preventDefault();
       e.stopPropagation();
     }
-    if (!content) return;
+    if (!content || !canEdit) return;
     setIsGeneratingImg(true);
     try {
       const url = await generateRecipeImage(`${content.title} ${content.description}`);
@@ -88,19 +89,19 @@ const RecipeView: React.FC<Props> = ({ recipe, language, onUpdate, onEdit, onDel
           />
         ) : (
           <div className="w-full h-full bg-[#F5F5F0] flex flex-col items-center justify-center">
-            <button 
+            {canEdit && <button 
               type="button"
               onClick={handleAiGen} 
               disabled={isGeneratingImg}
               className="text-[#1C1C1C]/30 text-[10px] uppercase tracking-[0.5em] font-bold border-b border-[#1C1C1C]/10 pb-2 hover:text-[#1C1C1C] transition-all"
             >
               {isGeneratingImg ? 'מייצר...' : 'צור תמונה ב-AI'}
-            </button>
+            </button>}
           </div>
         )}
         
         {/* Actions - Floating Bar */}
-        <div className="absolute top-6 left-6 flex flex-col gap-3 z-30 print:hidden">
+        {canEdit && <div className="absolute top-6 left-6 flex flex-col gap-3 z-30 print:hidden">
           <button 
             type="button"
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(); }} 
@@ -121,7 +122,7 @@ const RecipeView: React.FC<Props> = ({ recipe, language, onUpdate, onEdit, onDel
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>
           </button>
-        </div>
+        </div>}
 
         <div className="absolute top-6 right-6 z-30 print:hidden">
           <button
