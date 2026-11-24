@@ -91,7 +91,7 @@ const RecipeView: React.FC<Props> = ({ recipe, language, onUpdate, onEdit, onDel
   }, {});
 
   return (
-    <div id={`recipe-${recipe.id}`} className="max-w-5xl mx-auto bg-white shadow-[0_40px_100px_rgba(0,0,0,0.05)] border-[0.5px] border-[#1C1C1C]/5 mb-16 overflow-hidden animate-in fade-in slide-in-from-bottom-12 duration-1000 will-change-transform">
+    <div id={`recipe-${recipe.id}`} className="recipe-detail max-w-5xl mx-auto bg-white shadow-[0_40px_100px_rgba(0,0,0,0.05)] border-[0.5px] border-[#1C1C1C]/5 mb-16 overflow-hidden animate-in fade-in slide-in-from-bottom-12 duration-1000 will-change-transform">
       
       {/* Editorial Header Image - Height reduced for PDF efficiency */}
       <div className="relative h-[300px] md:h-[470px] overflow-hidden group/header">
@@ -116,7 +116,7 @@ const RecipeView: React.FC<Props> = ({ recipe, language, onUpdate, onEdit, onDel
         )}
         
         {/* Actions - Floating Bar */}
-        {canEdit && <div className="absolute top-6 left-6 flex flex-col gap-3 z-30 print:hidden">
+        {canEdit && <div className="absolute top-3 left-3 md:top-6 md:left-6 flex flex-col gap-3 z-30 print:hidden">
           <button 
             type="button"
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(); }} 
@@ -139,7 +139,7 @@ const RecipeView: React.FC<Props> = ({ recipe, language, onUpdate, onEdit, onDel
           </button>
         </div>}
 
-        <div className="absolute top-6 right-6 z-30 print:hidden">
+        <div className="absolute top-3 right-3 md:top-6 md:right-6 z-30 print:hidden">
           <button
             type="button"
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); printCookbook([recipe], [], false, scale); }}
@@ -154,16 +154,16 @@ const RecipeView: React.FC<Props> = ({ recipe, language, onUpdate, onEdit, onDel
 
         <div className="absolute inset-0 bg-gradient-to-t from-[#1C1C1C]/70 via-transparent to-transparent pointer-events-none"></div>
         
-        <div className="absolute bottom-10 left-10 right-10 pointer-events-none">
+        <div className="absolute bottom-6 left-5 right-5 md:bottom-10 md:left-10 md:right-10 pointer-events-none">
           <span className="text-[9px] uppercase tracking-[0.5em] text-white/70 font-bold mb-2 block">SABOR & MASORET</span>
-          <h1 className="serif text-4xl md:text-6xl text-white font-light tracking-tight leading-none">{content.title}</h1>
+          <h1 className="serif text-3xl md:text-6xl text-white font-light tracking-tight leading-none">{content.title}</h1>
           <div className="w-16 h-[1px] bg-white/40 mt-4"></div>
         </div>
       </div>
 
-      <div className="p-8 md:p-12">
+      <div className="detail-body p-8 md:p-12">
         <div className="flex flex-wrap justify-center gap-3 mb-6 print:hidden"><button className="border border-[#A68C58] px-4 py-2 text-sm" onClick={()=>setCooking(v=>!v)}>מצב בישול</button>{(canEdit||recipe.es||translated)&&<button className="border border-[#A68C58] px-4 py-2 text-sm" disabled={translating} onClick={switchSpanish}>{translating?'מתרגם...':spanish?'עברית':'Español'}</button>}{spanish&&<button className="border px-4 py-2 text-sm" onClick={()=>printCookbook([{...recipe,he:content}],[],false,scale,{language:'es'})}>Imprimir en español</button>}</div>
-        {cooking&&<section role="dialog" aria-label="מצב בישול" className="fixed inset-0 z-[100] bg-[#FAF9F6] overflow-y-auto p-5 md:p-12"><div className="max-w-3xl mx-auto space-y-6"><div className="flex justify-between items-center"><h2 className="serif text-3xl">{content.title}</h2><button className="border p-2" onClick={()=>setCooking(false)}>סיום</button></div><h3 className="serif text-xl">מצרכים</h3>{content.ingredients.map(i=><label className="flex gap-3 border-b py-2 text-lg" key={i.id}><input type="checkbox" checked={checked.includes(i.id)} onChange={e=>setChecked(p=>e.target.checked?[...p,i.id]:p.filter(x=>x!==i.id))}/><span className={checked.includes(i.id)?'line-through opacity-50':''}>{i.name} · {formatAmount(i.amount)} {getUnitLabel(i.unit)}</span></label>)}<div className="border border-[#A68C58] p-6"><h3 className="text-[#806A47]">שלב {Math.min(stepIndex+1,content.instructions.length)} מתוך {content.instructions.length}</h3><p className="text-2xl leading-relaxed my-6 whitespace-pre-wrap">{content.instructions[stepIndex]?.text||'אין הוראות הכנה'}</p><div className="flex justify-between"><button disabled={!stepIndex} className="border p-3 disabled:opacity-30" onClick={()=>setStepIndex(i=>i-1)}>הקודם</button><button disabled={stepIndex>=content.instructions.length-1} className="bg-[#333A31] text-white p-3 disabled:opacity-30" onClick={()=>setStepIndex(i=>i+1)}>הבא</button></div></div><div className="border p-4 flex flex-wrap items-center gap-3"><label>דקות <input type="number" min="1" max="180" value={minutes} onChange={e=>setMinutes(+e.target.value)} className="w-20 border p-2"/></label><button disabled={!Number.isFinite(minutes)||minutes<=0||minutes>180} className="border p-2" onClick={()=>{setRemaining(Math.ceil(minutes*60));setDeadline(Date.now()+minutes*60000)}}>הפעל טיימר</button><strong className="text-2xl" aria-live={remaining===0?'polite':'off'}>{Math.floor(remaining/60)}:{String(remaining%60).padStart(2,'0')}</strong><button className="border p-2" onClick={()=>{setDeadline(0);setRemaining(0)}}>איפוס</button></div><p className="text-xs">המסך יישאר פעיל במכשירים תומכים כל עוד מצב הבישול פתוח. הטיימר חזותי.</p></div></section>}
+        {cooking&&<section role="dialog" aria-label="מצב בישול" className="cook-screen fixed inset-0 z-[100] bg-[#FAF9F6] overflow-y-auto p-5 md:p-12"><div className="max-w-3xl mx-auto space-y-6"><div className="flex justify-between items-center"><h2 className="serif text-3xl">{content.title}</h2><button className="border p-2" onClick={()=>setCooking(false)}>סיום</button></div><h3 className="serif text-xl">מצרכים</h3>{content.ingredients.map(i=><label className="flex gap-3 border-b py-2 text-lg" key={i.id}><input type="checkbox" checked={checked.includes(i.id)} onChange={e=>setChecked(p=>e.target.checked?[...p,i.id]:p.filter(x=>x!==i.id))}/><span className={checked.includes(i.id)?'line-through opacity-50':''}>{i.name} · {formatAmount(i.amount)} {getUnitLabel(i.unit)}</span></label>)}<div className="border border-[#A68C58] p-6"><h3 className="text-[#806A47]">שלב {Math.min(stepIndex+1,content.instructions.length)} מתוך {content.instructions.length}</h3><p className="text-2xl leading-relaxed my-6 whitespace-pre-wrap">{content.instructions[stepIndex]?.text||'אין הוראות הכנה'}</p><div className="flex justify-between"><button disabled={!stepIndex} className="border p-3 disabled:opacity-30" onClick={()=>setStepIndex(i=>i-1)}>הקודם</button><button disabled={stepIndex>=content.instructions.length-1} className="bg-[#333A31] text-white p-3 disabled:opacity-30" onClick={()=>setStepIndex(i=>i+1)}>הבא</button></div></div><div className="border p-4 flex flex-wrap items-center gap-3"><label>דקות <input type="number" min="1" max="180" value={minutes} onChange={e=>setMinutes(+e.target.value)} className="w-20 border p-2"/></label><button disabled={!Number.isFinite(minutes)||minutes<=0||minutes>180} className="border p-2" onClick={()=>{setRemaining(Math.ceil(minutes*60));setDeadline(Date.now()+minutes*60000)}}>הפעל טיימר</button><strong className="text-2xl" aria-live={remaining===0?'polite':'off'}>{Math.floor(remaining/60)}:{String(remaining%60).padStart(2,'0')}</strong><button className="border p-2" onClick={()=>{setDeadline(0);setRemaining(0)}}>איפוס</button></div><p className="text-xs">המסך יישאר פעיל במכשירים תומכים כל עוד מצב הבישול פתוח. הטיימר חזותי.</p></div></section>}
 
         {/* Intro Description & Scaling Controls */}
         <div className="max-w-2xl mx-auto text-center mb-10 space-y-8">
@@ -197,7 +197,7 @@ const RecipeView: React.FC<Props> = ({ recipe, language, onUpdate, onEdit, onDel
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
           
           {/* Ingredients Column */}
-          <div className="lg:col-span-4 border-l-[0.5px] border-[#1C1C1C]/10 pl-6">
+          <div className="detail-ingredients lg:col-span-4 border-l-[0.5px] border-[#1C1C1C]/10 pl-6">
             <h2 className="serif text-lg uppercase tracking-widest text-[#8B7355] mb-6 font-bold italic">{spanish?"Ingredientes":t.ingredients}</h2>
             <div className="space-y-4">
               {Object.entries(groupedIngredients).map(([cat, ings]: [string, any]) => (
