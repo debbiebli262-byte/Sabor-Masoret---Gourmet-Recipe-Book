@@ -42,7 +42,7 @@ const UnitSelect: React.FC<{
   const selectedLabel = UNITS[value] ? UNITS[value][language] : value;
 
   return (
-    <div className="relative col-span-2" ref={dropdownRef}>
+    <div className="unit-select relative col-span-2" ref={dropdownRef}>
       <div 
         onClick={() => setIsOpen(!isOpen)}
         className="bg-[#F5F5F0] p-4 text-xs cursor-pointer flex justify-between items-center group hover:bg-[#F0EEE6] transition-colors"
@@ -208,7 +208,7 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, draft, categorie
   };
 
   return (
-    <div className="bg-white p-8 md:p-16 border-[0.5px] border-[#1C1C1C]/10 shadow-2xl max-w-5xl mx-auto animate-in fade-in duration-700 relative">
+    <div className="recipe-form bg-white p-8 md:p-16 border-[0.5px] border-[#1C1C1C]/10 shadow-2xl max-w-5xl mx-auto animate-in fade-in duration-700 relative">
       <div className="text-center mb-16">
         <h2 className="serif text-4xl font-light text-[#1C1C1C] mb-4 uppercase tracking-tighter">
           {initialRecipe ? 'עריכת מתכון' : 'מתכון חדש'}
@@ -331,12 +331,12 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, draft, categorie
           </div>
           <div className="space-y-3">
             {(content.ingredients || []).map(ing => (
-              <div key={ing.id} className="grid grid-cols-12 gap-3 items-center animate-in fade-in duration-300">
-                <input className="col-span-7 min-w-0 bg-[#F5F5F0] p-3 text-xs outline-none focus:bg-white transition-colors" placeholder={t.ingredients} value={ing.name} onChange={e => updateIngredient(ing.id, 'name', e.target.value)} />
-                <input type="number" min="0" step="any" className="col-span-2 min-w-0 bg-[#F5F5F0] p-3 text-xs outline-none text-center focus:bg-white transition-colors" value={Number.isFinite(ing.amount)?ing.amount:""} onChange={e => updateIngredient(ing.id, 'amount', e.target.valueAsNumber)} />
+              <div key={ing.id} className="ingredient-row grid grid-cols-12 gap-3 items-center animate-in fade-in duration-300">
+                <input className="ingredient-name col-span-7 min-w-0 bg-[#F5F5F0] p-3 text-xs outline-none focus:bg-white transition-colors" placeholder={t.ingredients} value={ing.name} onChange={e => updateIngredient(ing.id, 'name', e.target.value)} />
+                <input type="number" inputMode="decimal" min="0" step="any" className="ingredient-amount col-span-2 min-w-0 bg-[#F5F5F0] p-3 text-xs outline-none text-center focus:bg-white transition-colors" value={Number.isFinite(ing.amount)?ing.amount:""} onChange={e => updateIngredient(ing.id, 'amount', e.target.valueAsNumber)} />
                 <UnitSelect value={ing.unit} onChange={(val) => updateIngredient(ing.id, 'unit', val)} language={language} />
 
-                <button onClick={() => removeIngredient(ing.id)} className="col-span-1 text-red-300 hover:text-red-600 transition-colors flex justify-center"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                <button onClick={() => removeIngredient(ing.id)} className="ingredient-delete col-span-1 text-red-300 hover:text-red-600 transition-colors flex justify-center"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
               </div>
             ))}
           </div>
@@ -369,7 +369,7 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, draft, categorie
         </section>
 
         <section className="space-y-4"><label>{t.notes}</label><textarea className="w-full bg-[#F5F5F0] p-4" value={content.notes || ""} onChange={e => setContent({...content, notes:e.target.value})}/><label>{t.oven}</label><textarea className="w-full bg-[#F5F5F0] p-4" value={content.ovenInstructions || ""} onChange={e => setContent({...content, ovenInstructions:e.target.value})}/></section>
-        <div className="flex gap-4 pt-12 border-t border-[#1C1C1C]/5">
+        <div className="flex flex-col sm:flex-row gap-4 pt-12 border-t border-[#1C1C1C]/5">
           <button onClick={() => content.ingredients.some(i=>!i.name.trim()||!Number.isFinite(i.amount)||i.amount<0) ? alert('יש להשלים שם וכמות לכל מצרך') : content.title.trim() ? onSave({ [language]: content, image, categoryId: categoryId || '', ...(draft?.sourceUrl?{sourceUrl:draft.sourceUrl}:{}) }) : alert('יש להזין שם מתכון')} className="flex-1 bg-[#1C1C1C] text-white font-bold py-5 text-xs uppercase tracking-[0.4em] hover:bg-[#8B7355] shadow-2xl transition-all">
             {t.save}
           </button>
