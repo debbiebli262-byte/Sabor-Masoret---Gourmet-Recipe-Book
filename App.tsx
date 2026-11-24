@@ -34,7 +34,7 @@ const RecipeCard = React.memo(({ recipe, language, onClick, categories, onUpdate
 
   return (
     <div onClick={onClick} className="group cursor-pointer flex flex-col items-center">
-      <div className="relative w-full aspect-[4/5] overflow-hidden mb-8 grayscale hover:grayscale-0 transition-all duration-700 shadow-sm will-change-transform">
+      <div className="relative w-full aspect-[4/5] overflow-hidden mb-8 transition-all duration-700 shadow-sm will-change-transform">
         {recipe.image ? (
           <img 
             src={recipe.image} 
@@ -161,7 +161,7 @@ const App: React.FC = () => {
     try {
       if (editingRecipe) {
         const recipeRef = doc(db, 'recipes', editingRecipe.id);
-        await setDoc(recipeRef, recipeData, { merge: true });
+        await setDoc(recipeRef, { ...recipeData, es: null }, { merge: true });
         setEditingRecipe(null);
       } else {
         const recipesCol = collection(db, 'recipes');
@@ -253,7 +253,7 @@ const App: React.FC = () => {
     }
   };
 
-  useEffect(() => { if (!canEdit) { setShowForm(false); setEditingRecipe(null); setShowCategoryManager(false); setShowImportBar(false); } }, [canEdit]);
+  useEffect(() => { if (!canEdit) { setShowForm(false); setEditingRecipe(null); setDraft(null); setShowCategoryManager(false); setShowImportBar(false); setShowTrash(false); } }, [canEdit]);
 
   const t = UI_STRINGS[language];
 
