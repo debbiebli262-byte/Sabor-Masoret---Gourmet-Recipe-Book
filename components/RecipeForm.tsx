@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Recipe, Language, RecipeContent, Ingredient, PrepStep, Unit, Category } from '../types';
-import { UI_STRINGS, UNITS } from '../constants';
+import { UI_STRINGS, UNITS, categoryLabel } from '../constants';
 import { parseIngredientList } from '../services/ingredientParser';
 import { generateRecipeImage } from '../services/geminiService';
 
@@ -60,7 +60,7 @@ const UnitSelect: React.FC<{
               type="text" 
               autoFocus
               className="w-full bg-[#F5F5F0] p-2 text-[10px] outline-none italic"
-              placeholder={language === Language.HE ? 'חפש...' : 'Filtrer...'}
+              placeholder={language === Language.HE ? 'חפש...' : 'Buscar…'}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onClick={(e) => e.stopPropagation()}
@@ -85,6 +85,7 @@ const UnitSelect: React.FC<{
 
 const RecipeForm: React.FC<Props> = ({ language, initialRecipe, draft, categories, onSave, onCancel, onAddCategory }) => {
   const t = UI_STRINGS[language];
+  const L=(he:string,sp:string)=>language===Language.ES?sp:he;
   const [content, setContent] = useState<RecipeContent>({
     title: '',
     description: '',
@@ -211,11 +212,12 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, draft, categorie
     <div className="recipe-form bg-white p-8 md:p-16 border-[0.5px] border-[#1C1C1C]/10 shadow-2xl max-w-5xl mx-auto animate-in fade-in duration-700 relative">
       <div className="text-center mb-16">
         <h2 className="serif text-4xl font-light text-[#1C1C1C] mb-4 uppercase tracking-tighter">
-          {initialRecipe ? 'עריכת מתכון' : 'מתכון חדש'}
+          {initialRecipe ? L('עריכת מתכון','Editar receta') : L('מתכון חדש','Nueva receta')}
         </h2>
         <div className="w-16 h-[1px] bg-[#8B7355] mx-auto"></div>
       </div>
       
+      {language===Language.ES&&<p className="mb-5 text-sm text-[#806A47]">El contenido original se guarda en hebreo. Para traducirlo, usá la opción Traducir del recetario después de guardarlo.</p>}
       <div className="space-y-16">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
           <div className="space-y-6">
@@ -277,7 +279,7 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, draft, categorie
                 >
                   <option value="">{t.uncategorized}</option>
                   {categories.map(cat => (
-                    <option key={cat.id} value={cat.id}>{cat[language]}</option>
+                    <option key={cat.id} value={cat.id}>{categoryLabel(cat,language)}</option>
                   ))}
                 </select>
               )}
@@ -294,7 +296,7 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, draft, categorie
           </div>
 
           <div className="space-y-6">
-             <label className="text-[10px] uppercase tracking-[0.4em] text-[#1C1C1C]/40 font-bold block mb-3">ויזואליה של המנה</label>
+             <label className="text-[10px] uppercase tracking-[0.4em] text-[#1C1C1C]/40 font-bold block mb-3">{L("ויזואליה של המנה","Imagen del plato")}</label>
              <div className="bg-[#F5F5F0] p-6 space-y-4">
                 <input
                   type="text"
@@ -323,10 +325,10 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, draft, categorie
             <button onClick={addIngredient} className="text-[#8B7355] text-[10px] font-bold uppercase tracking-widest hover:text-[#1C1C1C] transition-colors">+ {t.addIngredient}</button>
           </div>
           <div className="bg-[#FAF9F6] border border-[#8B7355]/20 p-4 mb-6 space-y-3">
-            <label htmlFor="bulk-ingredients" className="block font-medium text-sm">הדבקה מהירה של מצרכים</label>
+            <label htmlFor="bulk-ingredients" className="block font-medium text-sm">{L("הדבקה מהירה של מצרכים","Carga rápida de ingredientes")}</label>
             <p className="text-xs text-[#6B6255]">מצרך אחד בכל שורה, למשל 250 גרם קמח או קמח 250 גרם. הרשימה תתווסף למצרכים הקיימים.</p>
             <textarea id="bulk-ingredients" rows={5} className="w-full bg-white border border-[#8B7355]/20 p-3 text-sm outline-none" value={bulkIngredients} onChange={e=>{setBulkIngredients(e.target.value);setBulkMessage('')}} placeholder={'250 גרם קמח\n100 גרם סוכר\n2 ביצים\nחצי כפית מלח'}/>
-            <button type="button" disabled={!bulkIngredients.trim()} onClick={createIngredients} className="bg-[#333A31] text-white px-5 py-3 text-sm disabled:opacity-40">צור רשימת מצרכים</button>
+            <button type="button" disabled={!bulkIngredients.trim()} onClick={createIngredients} className="bg-[#333A31] text-white px-5 py-3 text-sm disabled:opacity-40">{L("צור רשימת מצרכים","Crear lista de ingredientes")}</button>
             {bulkMessage && <p role="status" className="text-sm">{bulkMessage}</p>}
           </div>
           <div className="space-y-3">
@@ -348,9 +350,9 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, draft, categorie
             <button onClick={addStep} className="text-[#8B7355] text-[10px] font-bold uppercase tracking-widest hover:text-[#1C1C1C] transition-colors">+ {t.addStep}</button>
           </div>
           <div className="bg-[#FAF9F6] border border-[#8B7355]/20 p-4 mb-6 space-y-3">
-            <label htmlFor="bulk-steps" className="block font-medium text-sm">הדבקה מהירה של הוראות הכנה</label>
-            <textarea id="bulk-steps" rows={5} value={bulkSteps} onChange={e=>setBulkSteps(e.target.value)} className="w-full bg-white border p-3 text-sm" placeholder="כל שלב בשורה נפרדת"/>
-            <button type="button" disabled={!bulkSteps.trim()} onClick={createSteps} className="bg-[#333A31] text-white px-5 py-3 text-sm disabled:opacity-40">צור שלבי הכנה</button>
+            <label htmlFor="bulk-steps" className="block font-medium text-sm">{L("הדבקה מהירה של הוראות הכנה","Carga rápida de preparación")}</label>
+            <textarea id="bulk-steps" rows={5} value={bulkSteps} onChange={e=>setBulkSteps(e.target.value)} className="w-full bg-white border p-3 text-sm" placeholder={L("כל שלב בשורה נפרדת","Un paso por línea")}/>
+            <button type="button" disabled={!bulkSteps.trim()} onClick={createSteps} className="bg-[#333A31] text-white px-5 py-3 text-sm disabled:opacity-40">{L("צור שלבי הכנה","Crear pasos")}</button>
           </div>
           <div className="space-y-8">
             {(content.instructions || []).map((step, idx) => (
@@ -370,7 +372,7 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, draft, categorie
 
         <section className="space-y-4"><label>{t.notes}</label><textarea className="w-full bg-[#F5F5F0] p-4" value={content.notes || ""} onChange={e => setContent({...content, notes:e.target.value})}/><label>{t.oven}</label><textarea className="w-full bg-[#F5F5F0] p-4" value={content.ovenInstructions || ""} onChange={e => setContent({...content, ovenInstructions:e.target.value})}/></section>
         <div className="flex flex-col sm:flex-row gap-4 pt-12 border-t border-[#1C1C1C]/5">
-          <button onClick={() => content.ingredients.some(i=>!i.name.trim()||!Number.isFinite(i.amount)||i.amount<0) ? alert('יש להשלים שם וכמות לכל מצרך') : content.title.trim() ? onSave({ [language]: content, image, categoryId: categoryId || '', ...(draft?.sourceUrl?{sourceUrl:draft.sourceUrl}:{}) }) : alert('יש להזין שם מתכון')} className="flex-1 bg-[#1C1C1C] text-white font-bold py-5 text-xs uppercase tracking-[0.4em] hover:bg-[#8B7355] shadow-2xl transition-all">
+          <button onClick={() => content.ingredients.some(i=>!i.name.trim()||!Number.isFinite(i.amount)||i.amount<0) ? alert('יש להשלים שם וכמות לכל מצרך') : content.title.trim() ? onSave({ [Language.HE]: content, image, categoryId: categoryId || '', ...(draft?.sourceUrl?{sourceUrl:draft.sourceUrl}:{}) }) : alert('יש להזין שם מתכון')} className="flex-1 bg-[#1C1C1C] text-white font-bold py-5 text-xs uppercase tracking-[0.4em] hover:bg-[#8B7355] shadow-2xl transition-all">
             {t.save}
           </button>
           <button onClick={onCancel} className="px-10 py-5 text-[#1C1C1C]/40 font-bold text-[10px] uppercase tracking-widest hover:text-[#1C1C1C] transition-all">
