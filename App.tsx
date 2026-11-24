@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Recipe, Language, RecipeContent, Category } from './types';
 import { UI_STRINGS, DEFAULT_CATEGORIES } from './constants';
+import { printCookbook } from './services/printCookbook';
 import RecipeForm from './components/RecipeForm';
 import RecipeView from './components/RecipeView';
 import CategoryManager from './components/CategoryManager';
@@ -64,6 +65,7 @@ const App: React.FC = () => {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | 'all'>('all');
 
   const [importUrl, setImportUrl] = useState('');
+  const [importText, setImportText] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [showImportBar, setShowImportBar] = useState(false);
 
@@ -148,6 +150,7 @@ const App: React.FC = () => {
       setShowForm(false);
     } catch (e) {
       console.error("Error saving recipe:", e);
+      alert('שמירת המתכון נכשלה. נסי שוב.');
     }
   }, [editingRecipe]);
 
@@ -182,19 +185,21 @@ const App: React.FC = () => {
   };
 
   const handleUrlImport = async () => {
-    if (!importUrl) return;
+    if (!importUrl.trim() && !importText.trim()) return;
     setIsImporting(true);
     try {
-      const scrapedContent = await importRecipeFromUrl(importUrl, language);
+      const scrapedContent = await importRecipeFromUrl(importUrl, language, importText);
       if (scrapedContent) {
-        const imageUrl = await generateRecipeImage(scrapedContent.title);
+        const categoryId = categories.find(c => c.he === scrapedContent.suggestedCategory)?.id || '';
         const recipesCol = collection(db, 'recipes');
         const newRecipe = {
           createdAt: Date.now(),
-          image: imageUrl || undefined,
+          categoryId,
+          sourceUrl: importUrl.trim(),
           [Language.HE]: scrapedContent,
         };
         await addDoc(recipesCol, newRecipe);
+        setImportText('');
         setImportUrl('');
         setShowImportBar(false);
       } else {
@@ -308,7 +313,9 @@ const App: React.FC = () => {
             )}
           </div>
 
-          <div className="flex items-center gap-6">
+          <div className="flex flex-wrap items-center gap-3">
+            <button disabled={!recipes.length} onClick={() => printCookbook(recipes, categories)} className="border border-[#8B7355] px-3 py-2 text-xs">הדפסת כל הספר / PDF</button>
+            {selectedRecipe && <button onClick={() => printCookbook([selectedRecipe], categories, false)} className="border border-[#8B7355] px-3 py-2 text-xs">הדפסת מתכון</button>}
             <button 
               onClick={() => setShowImportBar(!showImportBar)} 
               className={`p-2 transition-colors ${showImportBar ? 'text-[#8B7355]' : 'text-[#1C1C1C]/40 hover:text-[#1C1C1C]'}`}
@@ -333,12 +340,13 @@ const App: React.FC = () => {
               type="text" 
               value={importUrl}
               onChange={(e) => setImportUrl(e.target.value)}
-              placeholder={t.urlPlaceholder}
+              placeholder="קישור לאינסטגרם או לאתר מתכונים"
               className="flex-1 w-full bg-[#F5F5F0] border-none py-3 px-4 outline-none text-sm"
             />
+            <textarea value={importText} onChange={e => setImportText(e.target.value)} placeholder="אם הקישור חסום, הדביקי כאן את תיאור הפוסט או המתכון" className="w-full bg-[#F5F5F0] p-3 text-sm" />
             <button 
               onClick={handleUrlImport}
-              disabled={isImporting || !importUrl}
+              disabled={isImporting || (!importUrl.trim() && !importText.trim())}
               className="bg-[#8B7355] text-white px-8 py-3 text-[10px] font-bold uppercase tracking-[0.2em] disabled:opacity-50 min-w-[180px] flex items-center justify-center gap-2"
             >
               {isImporting && <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>}
