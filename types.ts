@@ -40,6 +40,8 @@ export interface Recipe {
   id: string;
   image?: string;
   createdAt: number;
+  deletedAt?: number|null;
+  es?: RecipeContent;
   categoryId?: string;
   [Language.HE]: RecipeContent;
   userId?: string;
