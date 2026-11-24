@@ -26,6 +26,7 @@ export interface PrepStep {
 }
 
 export interface RecipeContent {
+  suggestedCategory?: string;
   title: string;
   description: string;
   ingredients: Ingredient[];
@@ -35,6 +36,7 @@ export interface RecipeContent {
 }
 
 export interface Recipe {
+  sourceUrl?: string;
   id: string;
   image?: string;
   createdAt: number;
