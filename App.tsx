@@ -78,6 +78,7 @@ const App: React.FC = () => {
   const [language, setLanguage] = useState<Language>(Language.HE);
   const [showForm, setShowForm] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+  const [importDraft, setImportDraft] = useState<Recipe | null>(null);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | 'all'>('all');
@@ -151,7 +152,8 @@ const App: React.FC = () => {
   }, [searchQuery]);
 
   const handleSaveRecipe = useCallback(async (recipeData: Partial<Recipe>) => {
-    if (!canEdit) return;
+    if (!canEdit) return false;
+    if (!editingRecipe && recipes.some(r=>r.he?.title.trim().toLowerCase()===recipeData.he?.title.trim().toLowerCase()) && !window.confirm('כבר קיים מתכון בשם זה. לשמור בכל זאת?')) return false;
     try {
       if (editingRecipe) {
         const recipeRef = doc(db, 'recipes', editingRecipe.id);
@@ -167,11 +169,14 @@ const App: React.FC = () => {
         await addDoc(recipesCol, newRecipe);
       }
       setShowForm(false);
+      setImportDraft(null);
+      return true;
     } catch (e) {
       console.error("Error saving recipe:", e);
       alert('שמירת המתכון נכשלה. נסי שוב.');
+      return false;
     }
-  }, [editingRecipe, canEdit]);
+  }, [editingRecipe, canEdit, recipes]);
 
   const handleAddCategory = useCallback(async (cat: Omit<Category, 'id'>) => {
     if (!canEdit) return null;
@@ -221,7 +226,8 @@ const App: React.FC = () => {
           sourceUrl: importUrl.trim(),
           [Language.HE]: scrapedContent,
         };
-        await addDoc(recipesCol, newRecipe);
+        setImportDraft({...newRecipe,id:'import-draft'});
+        setEditingRecipe(null); setSelectedRecipe(null); setShowForm(true);
         setImportText('');
         setImportUrl('');
         setShowImportBar(false);
@@ -247,7 +253,7 @@ const App: React.FC = () => {
     }
   };
 
-  useEffect(() => { if (!canEdit) { setShowForm(false); setEditingRecipe(null); setShowCategoryManager(false); setShowImportBar(false); } }, [canEdit]);
+  useEffect(() => { if (!canEdit) { setShowForm(false); setEditingRecipe(null); setImportDraft(null); setShowCategoryManager(false); setShowImportBar(false); } }, [canEdit]);
 
   const t = UI_STRINGS[language];
 
@@ -265,7 +271,7 @@ const App: React.FC = () => {
       return terms.every(term => contents.some(content => {
         const titleMatch = searchInTitle && content.title.toLowerCase().includes(term);
         const ingredientMatch = searchInIngredients && content.ingredients.some(ing => ing.name.toLowerCase().includes(term));
-        return titleMatch || ingredientMatch;
+        return titleMatch || ingredientMatch || (content.tags || []).some(tag=>tag.toLowerCase().includes(term));
       }));
     });
 
@@ -354,7 +360,7 @@ const App: React.FC = () => {
             <button onClick={() => setShowCategoryManager(true)} className="p-2 text-[#1C1C1C]/40 hover:text-[#1C1C1C] transition-colors" title={t.manageCategories}>
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
             </button>
-            <button onClick={() => { setShowForm(true); setSelectedRecipe(null); setEditingRecipe(null); }} className="bg-[#1C1C1C] text-white px-6 py-3 text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-[#8B7355] transition-all">
+            <button onClick={() => { setShowForm(true); setSelectedRecipe(null); setEditingRecipe(null); setImportDraft(null); }} className="bg-[#1C1C1C] text-white px-6 py-3 text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-[#8B7355] transition-all">
               {t.addRecipe}
             </button></>}
           </div>
@@ -433,7 +439,7 @@ const App: React.FC = () => {
           <RecipeForm 
             language={language} 
             categories={categories}
-            initialRecipe={editingRecipe || undefined}
+            initialRecipe={editingRecipe || importDraft || undefined}
             onSave={handleSaveRecipe} 
             onCancel={() => { setShowForm(false); setEditingRecipe(null); }} 
             onAddCategory={handleAddCategory}
