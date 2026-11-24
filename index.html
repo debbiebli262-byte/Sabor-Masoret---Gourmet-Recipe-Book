@@ -1,9 +1,9 @@
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Sabor & Masoret | L'Art de la Cuisine</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -70,6 +70,47 @@
         .animate-in {
             animation-duration: 0.5s !important;
         }
+     
+        .mobile-nav{display:none}
+        .mobile-install{display:none}
+        :focus-visible{outline:2px solid #8B7355;outline-offset:3px}
+        @media(max-width:767px){
+          body{margin:0;overscroll-behavior-y:none}
+          .mobile-nav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));position:fixed;bottom:0;left:0;right:0;z-index:60;background:#FAF9F6;border-top:1px solid #D7C8A9;padding:6px 8px calc(6px + env(safe-area-inset-bottom));box-shadow:0 -4px 20px #0001}
+          .mobile-nav button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:50px;font-size:12px;color:#333A31}
+          .mobile-nav svg{width:22px;height:22px;stroke-width:1.6}
+          .mobile-install{display:inline-flex}
+          .desktop-actions{display:none!important}
+          .glass-header{position:relative!important;top:auto!important;backdrop-filter:none;will-change:auto;padding:14px 0!important;margin-bottom:16px!important}
+          .glass-header .header-layout{gap:12px!important}
+          .mobile-category-tabs{margin-bottom:24px!important}
+          .recipe-form{padding:18px!important}
+          .recipe-form input:not([type=checkbox]):not([type=file]),.recipe-form textarea,.recipe-form select{font-size:16px!important}
+          .ingredient-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 44px!important;gap:8px!important;border-bottom:1px solid #D7C8A9;padding-bottom:12px}
+          .ingredient-row .ingredient-name{grid-column:1/-1!important}
+          .ingredient-row .ingredient-amount,.ingredient-row .unit-select,.ingredient-row .ingredient-delete{grid-column:span 1!important}
+          .ingredient-row .unit-select>div:first-child{min-height:48px;font-size:14px}
+          .ingredient-row button{min-height:48px}
+          .mobile-card img{transition:none!important;transform:none!important}
+          .mobile-card{min-width:0}
+          .mobile-card h3{font-size:18px;line-height:1.3;overflow-wrap:anywhere}
+          .mobile-card .card-photo{margin-bottom:12px}
+          .mobile-card .card-caption{gap:6px}
+          .mobile-card .card-caption>p{letter-spacing:.04em}
+          .recipe-detail{overflow:visible!important;will-change:auto!important;animation:none!important}
+          .recipe-detail .detail-body{padding:18px!important}
+          .recipe-detail .detail-ingredients{border:0!important;padding:0!important}
+          .recipe-detail .detail-ingredients li{padding:7px 0;border-bottom:1px dotted #D7C8A9}
+          .recipe-detail .detail-ingredients li span:last-child{font-size:13px;color:#5f584b}
+          .cook-screen{padding-bottom:calc(24px + env(safe-area-inset-bottom))!important;z-index:110!important}
+          .cook-screen button,.recipe-form button{min-height:44px}
+          .mobile-menu{position:fixed;bottom:calc(72px + env(safe-area-inset-bottom));left:12px;right:12px;background:#fff;z-index:65;box-shadow:0 8px 40px #0003;border:1px solid #D7C8A9;padding:12px;max-height:65dvh;overflow:auto}
+          .mobile-menu button{display:block;width:100%;text-align:right;padding:13px;border-bottom:1px solid #eee;font-size:14px}
+          .mobile-main{padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+          input[type=checkbox]{width:20px;height:20px;accent-color:#333A31;flex-shrink:0}
+        }
+        @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+        @media print{.mobile-nav,.mobile-menu{display:none!important}}
     </style>
 <script type="importmap">
 {
@@ -83,7 +124,9 @@
   }
 }
 </script>
-<link rel="stylesheet" href="/index.css">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#FAF9F6">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
 </head>
 <body>
     <div id="root"></div>
