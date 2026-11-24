@@ -182,27 +182,27 @@ const App: React.FC = () => {
   }, [searchQuery]);
 
   const handleSaveRecipe = useCallback(async (recipeData: Partial<Recipe>) => {
-    if (!canEdit) return;
+    if (!canEdit) return false;
     try {
+      const original=recipeData.originalLanguage==='es'?'es':'he';
+      const source=original==='es'?recipeData.es:recipeData.he;
+      if(!source)throw new Error('Missing recipe');
+      const other=await translateRecipe(source,original==='es'?Language.HE:Language.ES);
+      if(!other)throw new Error('Translation failed');
+      const bilingual={...recipeData,originalLanguage:original,he:original==='he'?source:other,es:original==='es'?source:other};
       if (editingRecipe) {
-        const recipeRef = doc(db, 'recipes', editingRecipe.id);
-        await setDoc(recipeRef, { ...recipeData, es: null }, { merge: true });
+        await setDoc(doc(db,'recipes',editingRecipe.id),bilingual,{merge:true});
         setEditingRecipe(null);
       } else {
-        const recipesCol = collection(db, 'recipes');
-        const newRecipe = {
-          ...recipeData,
-          createdAt: Date.now(),
-          [Language.HE]: recipeData[Language.HE] || null,
-        };
-        await addDoc(recipesCol, newRecipe);
+        await addDoc(collection(db,'recipes'),{...bilingual,createdAt:Date.now()});
       }
-      setShowForm(false); setDraft(null);
-    } catch (e) {
-      console.error("Error saving recipe:", e);
-      alert('שמירת המתכון נכשלה. נסי שוב.');
+      setShowForm(false);setDraft(null);return true;
+    } catch(e) {
+      console.error('Recipe save failed',e);
+      alert(language===Language.ES?'No se pudo traducir o guardar. El formulario conserva tu receta; volvé a intentar.':'לא ניתן לתרגם או לשמור כרגע. המתכון נשאר בטופס; אפשר לנסות שוב.');
+      return false;
     }
-  }, [editingRecipe, canEdit]);
+  }, [editingRecipe,canEdit,language]);
 
   const handleAddCategory = useCallback(async (cat: Omit<Category, 'id'>) => {
     if (!canEdit) return null;
@@ -242,15 +242,17 @@ const App: React.FC = () => {
     if (!importUrl.trim() && !importText.trim() && !importFile) return;
     setIsImporting(true);
     try {
-      const scrapedContent = await importRecipeFromUrl(importUrl, Language.HE, importText, importFile || undefined);
+      const scrapedContent = await importRecipeFromUrl(importUrl, 'auto', importText, importFile || undefined);
       if (scrapedContent) {
-        const categoryId = categories.find(c => c.he === scrapedContent.suggestedCategory)?.id || '';
+        const categoryId = categories.find(c => c.he === scrapedContent.suggestedCategory || c.es === scrapedContent.suggestedCategory)?.id || '';
         const recipesCol = collection(db, 'recipes');
         const newRecipe = {
           createdAt: Date.now(),
           categoryId,
           sourceUrl: importUrl.trim(),
+          originalLanguage: scrapedContent.sourceLanguage==='es'?'es' as const:'he' as const,
           [Language.HE]: scrapedContent,
+          ...(scrapedContent.sourceLanguage==='es'?{es:scrapedContent}:{}) ,
         };
         setDraft({...newRecipe,id:'draft'}); setEditingRecipe(null); setSelectedRecipe(null); setShowForm(true); setImportFile(null); setFileName('');
         setImportText('');
