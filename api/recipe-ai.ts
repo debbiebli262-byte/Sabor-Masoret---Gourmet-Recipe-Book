@@ -17,11 +17,11 @@ async function authorized(token:string){
 }
 let preferredModel:string|undefined;
 async function generateText(ai:GoogleGenAI,request:Omit<Parameters<GoogleGenAI['models']['generateContent']>[0],'model'>){
- const models=[...new Set([preferredModel,'gemini-3.5-flash-lite','gemini-3.8-flash','gemini-3.1-flash-lite','gemini-2.5-flash'].filter((x):x is string=>!!x))];
+ const models=[...new Set([preferredModel,'gemini-3.5-flash-lite','gemini-3.1-flash-lite','gemini-3.8-flash','gemini-2.5-flash'].filter((x):x is string=>!!x))];
  let last:unknown;
  for(const model of models){
   try{const result=await ai.models.generateContent({...request,model});preferredModel=model;return result;}
-  catch(e:any){last=e;const status=Number(e?.status);console.error('Gemini text model failed',model,status||e?.name);if(status!==404)throw e;}
+  catch(e:any){last=e;const status=Number(e?.status);console.error('Gemini text model failed',model,status||e?.name);if(![404,500,502,503,504].includes(status))throw e;}
  }
  throw last;
 }
@@ -59,5 +59,5 @@ export default async function handler(req:any,res:any){
   if(!data||typeof data.title!=='string'||!data.title.trim()||!Array.isArray(data.ingredients)||(body.action==='import'&&!data.ingredients.length)||!Array.isArray(data.instructions)||(body.action==='import'&&!data.instructions.length)||!data.ingredients.every(i=>typeof i.name==='string'&&Number.isFinite(i.amount)&&i.amount>=0&&units.has(i.unit))||!data.instructions.every(i=>typeof i.text==='string'&&i.text.trim()))return res.status(422).json({error:'לא נמצא מתכון מלא. הדביקי את הטקסט המקורי.'});
   if(body.action==='translate'){const original=body.content;if(data.ingredients.length!==original.ingredients.length||data.instructions.length!==original.instructions.length||data.ingredients.some((i,n)=>i.amount!==original.ingredients[n].amount||i.unit!==original.ingredients[n].unit))return res.status(422).json({error:'Translation changed recipe structure'});data={...original,...data,ingredients:data.ingredients.map((i,n)=>({...original.ingredients[n],name:i.name,category:i.category||original.ingredients[n].category})),instructions:data.instructions.map((i,n)=>({...original.instructions[n],text:i.text,category:i.category||original.instructions[n].category}))};}
   return res.json({recipe:{...data,description:typeof data.description==='string'?data.description:'',ingredients:data.ingredients.map((i,n)=>({...i,id:body.action==='translate'?i.id:String(n),category:typeof i.category==='string'?i.category:'כללי'})),instructions:data.instructions.map((i,n)=>({...i,id:String(n),category:typeof i.category==='string'?i.category:'כללי'}))}});
- }catch(e:any){console.error('Gemini request failed',e?.status||e?.name);const status=Number(e?.status);return res.status(status===429?429:502).json({error:status===404?'Gemini: לא נמצא מודל זמין למפתח ה-API (404).':status===429?'Gemini: מכסת הבקשות נוצלה (429). נסי שוב מאוחר יותר.':status===401||status===403?'Gemini: המפתח אינו מורשה (401/403).':'שירות Gemini לא הצליח לעבד את המתכון. נסי שוב.'});}
+ }catch(e:any){console.error('Gemini request failed',e?.status||e?.name);const status=Number(e?.status);return res.status(status===429?429:502).json({error:status===404?'Gemini: לא נמצא מודל זמין למפתח ה-API (404).':status===503?'Gemini: שירות התרגום עמוס זמנית (503).':status===429?'Gemini: מכסת הבקשות נוצלה (429). נסי שוב מאוחר יותר.':status===401||status===403?'Gemini: המפתח אינו מורשה (401/403).':'שירות Gemini לא הצליח לעבד את המתכון. נסי שוב.'});}
 }
