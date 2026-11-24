@@ -2,13 +2,17 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Recipe, Language, RecipeContent, Category } from './types';
 import { UI_STRINGS, DEFAULT_CATEGORIES } from './constants';
+import { printCookbook } from './services/printCookbook';
 import RecipeForm from './components/RecipeForm';
 import RecipeView from './components/RecipeView';
 import CategoryManager from './components/CategoryManager';
 import ScrollToTop from './components/ScrollToTop';
 import { INITIAL_RECIPES } from './seedData';
 import { importRecipeFromUrl, generateRecipeImage } from './services/geminiService';
-import { db } from './firebase';
+import { db, auth } from './firebase';
+import { GoogleAuthProvider, onIdTokenChanged, signInWithPopup, signOut, User } from 'firebase/auth';
+
+const EDITORS = new Set(["debbiebli262@gmail.com","cblinder.cpa@gmail.com","javierblinder@gmail.com"]);
 import { 
   collection, 
   onSnapshot, 
@@ -54,6 +58,21 @@ const RecipeCard = React.memo(({ recipe, language, onClick, categories, onUpdate
 });
 
 const App: React.FC = () => {
+  const [user, setUser] = useState<User | null>(null);
+  const [canEdit, setCanEdit] = useState(false);
+  useEffect(() => onIdTokenChanged(auth, async account => {
+    setUser(account);
+    setCanEdit(false);
+    if (!account) return;
+    try {
+      const token = await account.getIdTokenResult();
+      if (auth.currentUser === account) setCanEdit(token.signInProvider === 'google.com' && token.claims.email_verified === true && EDITORS.has(String(token.claims.email)));
+    } catch { setCanEdit(false); }
+  }), []);
+  const login = async () => {
+    try { await signInWithPopup(auth, new GoogleAuthProvider()); }
+    catch { alert('לא ניתן להתחבר עם Google. בדקי את הגדרות ההתחברות ונסי שוב.'); }
+  };
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [language, setLanguage] = useState<Language>(Language.HE);
@@ -64,6 +83,7 @@ const App: React.FC = () => {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | 'all'>('all');
 
   const [importUrl, setImportUrl] = useState('');
+  const [importText, setImportText] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [showImportBar, setShowImportBar] = useState(false);
 
@@ -87,7 +107,7 @@ const App: React.FC = () => {
       orderBy('createdAt', 'desc')
     );
     const unsubRecipes = onSnapshot(recipesQuery, async (snapshot) => {
-      if (snapshot.empty) {
+      if (snapshot.empty && canEdit) {
         // Seed initial recipes to Firestore if it is completely empty
         try {
           for (const r of INITIAL_RECIPES) {
@@ -104,7 +124,7 @@ const App: React.FC = () => {
 
     const categoriesQuery = query(collection(db, 'categories'));
     const unsubCategories = onSnapshot(categoriesQuery, async (snapshot) => {
-      if (snapshot.empty) {
+      if (snapshot.empty && canEdit) {
         // Seed default categories to Firestore if it is completely empty
         try {
           for (const cat of DEFAULT_CATEGORIES) {
@@ -123,7 +143,7 @@ const App: React.FC = () => {
       unsubRecipes();
       unsubCategories();
     };
-  }, []);
+  }, [canEdit]);
 
   useEffect(() => {
     const handler = setTimeout(() => setDebouncedQuery(searchQuery), 300);
@@ -131,6 +151,7 @@ const App: React.FC = () => {
   }, [searchQuery]);
 
   const handleSaveRecipe = useCallback(async (recipeData: Partial<Recipe>) => {
+    if (!canEdit) return;
     try {
       if (editingRecipe) {
         const recipeRef = doc(db, 'recipes', editingRecipe.id);
@@ -148,10 +169,12 @@ const App: React.FC = () => {
       setShowForm(false);
     } catch (e) {
       console.error("Error saving recipe:", e);
+      alert('שמירת המתכון נכשלה. נסי שוב.');
     }
-  }, [editingRecipe]);
+  }, [editingRecipe, canEdit]);
 
   const handleAddCategory = useCallback(async (cat: Omit<Category, 'id'>) => {
+    if (!canEdit) return null;
     try {
       const categoriesCol = collection(db, 'categories');
       const docRef = await addDoc(categoriesCol, cat);
@@ -160,9 +183,10 @@ const App: React.FC = () => {
       console.error("Error adding category:", e);
       return null as any;
     }
-  }, []);
+  }, [canEdit]);
 
   const handleUpdateCategory = async (cat: Category) => {
+    if (!canEdit) return;
     try {
       const catRef = doc(db, 'categories', cat.id);
       await setDoc(catRef, cat, { merge: true });
@@ -172,6 +196,7 @@ const App: React.FC = () => {
   };
 
   const handleDeleteCategory = async (id: string) => {
+    if (!canEdit) return;
     if (window.confirm('האם למחוק קטגוריה זו? מתכונים תחתיה יהפכו לללא קטגוריה.')) {
       try {
         await deleteDoc(doc(db, 'categories', id));
@@ -182,19 +207,22 @@ const App: React.FC = () => {
   };
 
   const handleUrlImport = async () => {
-    if (!importUrl) return;
+    if (!canEdit) return;
+    if (!importUrl.trim() && !importText.trim()) return;
     setIsImporting(true);
     try {
-      const scrapedContent = await importRecipeFromUrl(importUrl, language);
+      const scrapedContent = await importRecipeFromUrl(importUrl, language, importText);
       if (scrapedContent) {
-        const imageUrl = await generateRecipeImage(scrapedContent.title);
+        const categoryId = categories.find(c => c.he === scrapedContent.suggestedCategory)?.id || '';
         const recipesCol = collection(db, 'recipes');
         const newRecipe = {
           createdAt: Date.now(),
-          image: imageUrl || undefined,
+          categoryId,
+          sourceUrl: importUrl.trim(),
           [Language.HE]: scrapedContent,
         };
         await addDoc(recipesCol, newRecipe);
+        setImportText('');
         setImportUrl('');
         setShowImportBar(false);
       } else {
@@ -208,6 +236,7 @@ const App: React.FC = () => {
   };
 
   const handleDeleteRecipe = async (id: string) => {
+    if (!canEdit) return;
     if (window.confirm('האם אתה בטוח שברצונך למחוק מתכון זה?')) {
       try {
         await deleteDoc(doc(db, 'recipes', id));
@@ -217,6 +246,8 @@ const App: React.FC = () => {
       }
     }
   };
+
+  useEffect(() => { if (!canEdit) { setShowForm(false); setEditingRecipe(null); setShowCategoryManager(false); setShowImportBar(false); } }, [canEdit]);
 
   const t = UI_STRINGS[language];
 
@@ -308,8 +339,12 @@ const App: React.FC = () => {
             )}
           </div>
 
-          <div className="flex items-center gap-6">
-            <button 
+          <div className="flex flex-wrap items-center gap-3">
+            {user ? <button onClick={() => signOut(auth).catch(() => alert("ההתנתקות נכשלה"))} className="border px-3 py-2 text-xs">התנתקות · {canEdit ? "עריכה" : "צפייה בלבד"}</button> : <button onClick={login} className="border px-3 py-2 text-xs">כניסה עם Google לעריכה</button>}
+            {!canEdit && <span className="text-xs text-[#8B7355]">צפייה בלבד</span>}
+            <button disabled={!recipes.length} onClick={() => printCookbook(recipes, categories)} className="border border-[#8B7355] px-3 py-2 text-xs">הדפסת כל הספר / PDF</button>
+            {selectedRecipe && <button onClick={() => printCookbook([selectedRecipe], categories, false)} className="border border-[#8B7355] px-3 py-2 text-xs">הדפסת מתכון</button>}
+            {canEdit && <><button 
               onClick={() => setShowImportBar(!showImportBar)} 
               className={`p-2 transition-colors ${showImportBar ? 'text-[#8B7355]' : 'text-[#1C1C1C]/40 hover:text-[#1C1C1C]'}`}
               title={t.importFromUrl}
@@ -321,24 +356,25 @@ const App: React.FC = () => {
             </button>
             <button onClick={() => { setShowForm(true); setSelectedRecipe(null); setEditingRecipe(null); }} className="bg-[#1C1C1C] text-white px-6 py-3 text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-[#8B7355] transition-all">
               {t.addRecipe}
-            </button>
+            </button></>}
           </div>
         </div>
       </header>
 
-      {showImportBar && (
+      {canEdit && showImportBar && (
         <div className="max-w-7xl mx-auto mb-12 animate-in slide-in-from-top-4 duration-500">
           <div className="bg-white premium-border p-6 flex flex-col md:flex-row gap-4 items-center shadow-xl">
             <input 
               type="text" 
               value={importUrl}
               onChange={(e) => setImportUrl(e.target.value)}
-              placeholder={t.urlPlaceholder}
+              placeholder="קישור לאינסטגרם או לאתר מתכונים"
               className="flex-1 w-full bg-[#F5F5F0] border-none py-3 px-4 outline-none text-sm"
             />
+            <textarea value={importText} onChange={e => setImportText(e.target.value)} placeholder="אם הקישור חסום, הדביקי כאן את תיאור הפוסט או המתכון" className="w-full bg-[#F5F5F0] p-3 text-sm" />
             <button 
               onClick={handleUrlImport}
-              disabled={isImporting || !importUrl}
+              disabled={isImporting || (!importUrl.trim() && !importText.trim())}
               className="bg-[#8B7355] text-white px-8 py-3 text-[10px] font-bold uppercase tracking-[0.2em] disabled:opacity-50 min-w-[180px] flex items-center justify-center gap-2"
             >
               {isImporting && <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>}
@@ -370,18 +406,18 @@ const App: React.FC = () => {
                 {cat[language]}
               </button>
             ))}
-            <button 
+            {canEdit && <button 
               onClick={() => setShowCategoryManager(true)}
               className="text-[#8B7355] hover:text-[#1C1C1C] transition-colors p-2 flex items-center justify-center border border-[#8B7355]/20 rounded-full w-6 h-6 ml-4"
               title={t.manageCategories}
             >
               <span className="text-xs font-bold">+</span>
-            </button>
+            </button>}
           </div>
         </div>
       )}
 
-      {showCategoryManager && (
+      {canEdit && showCategoryManager && (
         <CategoryManager 
           categories={categories} 
           language={language} 
@@ -393,7 +429,7 @@ const App: React.FC = () => {
       )}
 
       <main className="max-w-7xl mx-auto">
-        {(showForm || editingRecipe) ? (
+        {(canEdit && (showForm || editingRecipe)) ? (
           <RecipeForm 
             language={language} 
             categories={categories}
@@ -409,8 +445,9 @@ const App: React.FC = () => {
             </button>
             <RecipeView 
               recipe={selectedRecipe} 
+              canEdit={canEdit}
               language={language} 
-              onUpdate={(updated) => setRecipes(prev => prev.map(r => r.id === updated.id ? updated : r))}
+              onUpdate={async (updated) => { if (!canEdit) return; try { await setDoc(doc(db, "recipes", updated.id), updated, { merge: true }); setSelectedRecipe(updated); } catch { alert("שמירת התמונה נכשלה"); } }}
               onEdit={() => { setEditingRecipe(selectedRecipe); setSelectedRecipe(null); }}
               onDelete={() => handleDeleteRecipe(selectedRecipe.id)}
             />
