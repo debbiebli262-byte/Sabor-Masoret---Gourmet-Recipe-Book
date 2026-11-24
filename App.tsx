@@ -256,6 +256,7 @@ const App: React.FC = () => {
 
   useEffect(() => { if (!canEdit) { setShowForm(false); setEditingRecipe(null); setImportDraft(null); setShowCategoryManager(false); setShowImportBar(false); } }, [canEdit]);
 
+  useEffect(()=>{const id=new URLSearchParams(window.location.search).get('recipe');if(id){const r=recipes.find(r=>r.id===id);if(r)setSelectedRecipe(r)}},[recipes]);
   const t = UI_STRINGS[language];
 
   const processedRecipes = useMemo(() => {
