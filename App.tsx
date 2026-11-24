@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Recipe, Language, RecipeContent, Category } from './types';
 import { UI_STRINGS, DEFAULT_CATEGORIES, categoryLabel } from './constants';
 import { printCookbook } from './services/printCookbook';
@@ -22,7 +22,7 @@ import {
   setDoc, 
   deleteDoc, 
   addDoc,
-  orderBy
+  orderBy, runTransaction
 } from 'firebase/firestore';
 
 type SortOption = 'newest' | 'oldest' | 'alphabetical';
@@ -82,21 +82,45 @@ const App: React.FC = () => {
   const L=(he:string,sp:string)=>es?sp:he;
   useEffect(()=>{document.documentElement.lang=language;document.documentElement.dir=es?'ltr':'rtl';try{localStorage.setItem('sabor-language',language)}catch{}},[language]);
   const [translationProgress,setTranslationProgress]=useState('');
-  const translateBook=async()=>{
-    if(!canEdit||translationProgress)return;
-    const pending=recipes.filter(r=>!r.deletedAt&&!r.es);
-    if(!pending.length){alert(L('כל המתכונים מתורגמים','Todas las recetas ya están traducidas'));return}
-    if(!confirm(L('לתרגם '+pending.length+' מתכונים באמצעות Gemini? הפעולה משתמשת במכסת ה-API.','¿Traducir '+pending.length+' recetas con Gemini? Se utilizará la cuota de la API.')))return;
-    let done=0,failed=0;
-    try{for(const recipe of pending){setTranslationProgress((done+failed+1)+' / '+pending.length);try{const translated=await translateRecipe(recipe.he,Language.ES);if(!translated)throw Error();await setDoc(doc(db,'recipes',recipe.id),{es:translated},{merge:true});done++}catch{failed++}}}finally{setTranslationProgress('');alert(L('תורגמו '+done+'; נכשלו '+failed,'Traducidas: '+done+'; errores: '+failed))}
-  };
+  const [translationError,setTranslationError]=useState('');
+  const attemptedTranslations=useRef(new Set<string>());
+  const migrationRunning=useRef(false);
+  const pendingTranslations=recipes.filter(r=>!r.deletedAt&&!r.es);
+  useEffect(()=>{
+    if(!canEdit||migrationRunning.current||translationError)return;
+    const pending=recipes.filter(r=>!r.deletedAt&&!r.es&&!attemptedTranslations.current.has(r.id));
+    if(!pending.length)return;
+    migrationRunning.current=true;
+    void (async()=>{
+      try{
+        for(let i=0;i<pending.length;i++){
+          if(!auth.currentUser)break;
+          const recipe=pending[i];
+          attemptedTranslations.current.add(recipe.id);
+          setTranslationProgress((i+1)+' / '+pending.length);
+          try{
+            const translated=await translateRecipe(recipe.he,Language.ES);
+            if(!translated)throw new Error('Translation failed');
+            await runTransaction(db,async tx=>{
+              const ref=doc(db,'recipes',recipe.id);
+              const current=await tx.get(ref);
+              if(!current.exists()||current.data().deletedAt||current.data().es)return;
+              if(JSON.stringify(current.data().he)!==JSON.stringify(recipe.he)){attemptedTranslations.current.delete(recipe.id);return}
+              tx.update(ref,{es:translated});
+            });
+          }catch(e){attemptedTranslations.current.delete(recipe.id);setTranslationError(e instanceof Error?e.message:String(e));break}
+        }
+      }finally{migrationRunning.current=false;setTranslationProgress('')}
+    })();
+  },[canEdit,recipes,translationError,translationProgress]);
   const printEdition=(items:Recipe[],book=true)=>{
     const active=items.filter(r=>!r.deletedAt);
-    if(es&&active.some(r=>!r.es)){alert(L('יש לתרגם את המתכונים לפני ההדפסה','Hay recetas sin traducir. Usá Traducir el libro antes de imprimir.'));return}
+    if(es&&active.some(r=>!r.es)){alert(L('יש לתרגם את המתכונים לפני ההדפסה','Hay traducciones pendientes. Ingresá como editor y dejá que se complete la traducción automática.'));return}
     printCookbook(es?active.map(r=>({...r,he:r.es!})):active,categories,book,1,es?{language:'es'}:{});
   };
   const [showForm, setShowForm] = useState(false);
-  const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+  const [selectedRecipeState, setSelectedRecipe] = useState<Recipe | null>(null);
+  const selectedRecipe=selectedRecipeState ? (recipes.find(r=>r.id===selectedRecipeState.id)||selectedRecipeState):null;
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | 'all'>('all');
@@ -378,7 +402,7 @@ const App: React.FC = () => {
             <button onClick={goBook} className={!showPlanner?"bg-[#333A31] text-white px-4 py-2 text-sm":"border px-4 py-2 text-sm"}>{L("ספר המתכונים","Recetario")}</button><button onClick={goPlanner} className={showPlanner?"bg-[#333A31] text-white px-4 py-2 text-sm":"border border-[#A68C58] px-4 py-2 text-sm"}>{L("תפריט שבועי וקניות","Menú semanal y compras")}</button>
             {canEdit && <><button onClick={()=>{goBook();setShowTrash(v=>!v)}} className="border px-3 py-2 text-xs">{L("סל מחזור","Papelera")}</button><button onClick={()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({recipes,categories,exportedAt:new Date().toISOString()},null,2)],{type:'application/json'}));a.download='sabor-masoret-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}} className="border px-3 py-2 text-xs">{L("גיבוי","Copia de seguridad")}</button></>}
             {!canEdit && <span className="text-xs text-[#8B7355]">{L("צפייה בלבד","Solo lectura")}</span>}
-            {es&&canEdit&&<button disabled={!!translationProgress} onClick={translateBook} className="border border-[#A68C58] px-3 py-2 text-xs">{translationProgress||"Traducir el libro"}</button>}<button disabled={!recipes.length} onClick={() => printEdition(recipes)} className="border border-[#8B7355] px-3 py-2 text-xs">{L("הדפסת כל הספר / PDF","Imprimir libro / PDF")}</button>
+            <button disabled={!recipes.length} onClick={() => printEdition(recipes)} className="border border-[#8B7355] px-3 py-2 text-xs">{L("הדפסת כל הספר / PDF","Imprimir libro / PDF")}</button>
             {selectedRecipe && <button onClick={() => printEdition([selectedRecipe],false)} className="border border-[#8B7355] px-3 py-2 text-xs">{L("הדפסת מתכון","Imprimir receta")}</button>}
             {canEdit && <><button 
               onClick={() => {goBook();setShowImportBar(!showImportBar)}} 
@@ -397,6 +421,7 @@ const App: React.FC = () => {
         </div>
       </header>
 
+      {canEdit&&pendingTranslations.length>0&&<div role="status" className="max-w-7xl mx-auto mb-4 border border-[#D7C8A9] p-3 text-sm text-[#806A47]">{translationError?L("התרגום האוטומטי נעצר: ","La traducción automática se detuvo: ")+translationError:L("משלים תרגום אוטומטי של מתכונים קיימים: ","Completando traducciones automáticamente: ")+(translationProgress||pendingTranslations.length)}{translationError&&<span className="block text-xs mt-1">{L("רענון האתר ינסה שוב. המתכונים המקוריים נשמרו.","Al recargar se volverá a intentar. Las recetas originales se conservan.")}</span>}</div>}
       {showPlanner ? <main className="max-w-7xl mx-auto"><FamilyPlanner recipes={recipes.filter(r=>!r.deletedAt)} onClose={goBook} language={language}/></main> : <>
       {canEdit && showTrash && <section className="max-w-5xl mx-auto border p-5 mb-6 bg-white"><h2 className="serif text-2xl">{L("סל מחזור","Papelera")}</h2>{recipes.filter(r=>r.deletedAt).length===0&&<p>{L("אין מתכונים בסל","La papelera está vacía")}</p>}{recipes.filter(r=>r.deletedAt).map(r=><div key={r.id} className="flex justify-between border-b p-3"><span>{r.he.title}</span><button className="underline" onClick={async()=>{try{await setDoc(doc(db,'recipes',r.id),{deletedAt:null},{merge:true})}catch{alert('השחזור נכשל')}}}>{L("שחזור","Restaurar")}</button></div>)}</section>}
       {canEdit && showImportBar && (
@@ -487,7 +512,7 @@ const App: React.FC = () => {
               recipe={selectedRecipe} 
               canEdit={canEdit}
               language={language} 
-              onUpdate={async (updated) => { if (!canEdit) return; try { await setDoc(doc(db, "recipes", updated.id), updated, { merge: true }); setSelectedRecipe(updated); } catch { alert("שמירת התמונה נכשלה"); } }}
+              onUpdate={async (updated) => { if (!canEdit) return; try { await setDoc(doc(db, "recipes", updated.id), {image:updated.image||''}, { merge: true }); setSelectedRecipe(updated); } catch { alert("שמירת התמונה נכשלה"); } }}
               onEdit={() => { setEditingRecipe(selectedRecipe); setSelectedRecipe(null); }}
               onDelete={() => handleDeleteRecipe(selectedRecipe.id)}
             />
@@ -512,7 +537,7 @@ const App: React.FC = () => {
         )}
       </main>
       </>}
-      {mobileMenu&&<div className="mobile-menu md:hidden" role="dialog" aria-label={L("תפריט","Menú")}><button onClick={()=>{setMobileMenu(false);installApp()}}>{L("התקנה במסך הבית","Instalar en pantalla de inicio")}</button>{es&&canEdit&&<button disabled={!!translationProgress} onClick={()=>{setMobileMenu(false);translateBook()}}>{translationProgress||"Traducir el libro"}</button>}<button onClick={()=>{setMobileMenu(false);printEdition(recipes)}}>{L("הדפסת הספר","Imprimir libro")}</button>{user?<button onClick={()=>{setMobileMenu(false);signOut(auth).catch(()=>alert('ההתנתקות נכשלה'))}}>{L("התנתקות","Cerrar sesión")}</button>:<button onClick={()=>{setMobileMenu(false);login()}}>{L("כניסה עם Google לעריכה","Ingresar con Google")}</button>}{canEdit&&<><button onClick={()=>{goBook();setShowImportBar(true);window.scrollTo(0,0)}}>{L("ייבוא מתכון באמצעות AI","Importar receta con IA")}</button><button onClick={()=>{goBook();setShowCategoryManager(true)}}>{L("ניהול קטגוריות","Administrar categorías")}</button><button onClick={()=>{goBook();setShowTrash(true);window.scrollTo(0,0)}}>{L("סל מחזור","Papelera")}</button><button onClick={()=>{setMobileMenu(false);const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({recipes,categories},null,2)],{type:'application/json'}));a.download='sabor-masoret-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}}>{L("הורדת גיבוי","Descargar copia de seguridad")}</button></>}</div>}
+      {mobileMenu&&<div className="mobile-menu md:hidden" role="dialog" aria-label={L("תפריט","Menú")}><button onClick={()=>{setMobileMenu(false);installApp()}}>{L("התקנה במסך הבית","Instalar en pantalla de inicio")}</button><button onClick={()=>{setMobileMenu(false);printEdition(recipes)}}>{L("הדפסת הספר","Imprimir libro")}</button>{user?<button onClick={()=>{setMobileMenu(false);signOut(auth).catch(()=>alert('ההתנתקות נכשלה'))}}>{L("התנתקות","Cerrar sesión")}</button>:<button onClick={()=>{setMobileMenu(false);login()}}>{L("כניסה עם Google לעריכה","Ingresar con Google")}</button>}{canEdit&&<><button onClick={()=>{goBook();setShowImportBar(true);window.scrollTo(0,0)}}>{L("ייבוא מתכון באמצעות AI","Importar receta con IA")}</button><button onClick={()=>{goBook();setShowCategoryManager(true)}}>{L("ניהול קטגוריות","Administrar categorías")}</button><button onClick={()=>{goBook();setShowTrash(true);window.scrollTo(0,0)}}>{L("סל מחזור","Papelera")}</button><button onClick={()=>{setMobileMenu(false);const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({recipes,categories},null,2)],{type:'application/json'}));a.download='sabor-masoret-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}}>{L("הורדת גיבוי","Descargar copia de seguridad")}</button></>}</div>}
       <nav className="mobile-nav" aria-label={L("ניווט ראשי","Navegación principal")}><button onClick={()=>{goBook();setShowForm(false);setEditingRecipe(null);setDraft(null);setSelectedRecipe(null);setShowImportBar(false);setShowTrash(false);setSelectedCategoryId('all');setSearchQuery('');window.scrollTo(0,0)}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 10l9-7 9 7v10H3z M9 20v-7h6v7"/></svg>{L("ספר","Libro")}</button><button onClick={()=>{goPlanner()}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18"/></svg>{L("תפריט","Menú")}</button><button onClick={()=>{setMobileMenu(false);if(!canEdit){login();return}setDraft(null);setSelectedRecipe(null);setEditingRecipe(null);setShowForm(true);goBook();setShowImportBar(false)}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M7 12h10"/></svg>{L("מתכון חדש","Nueva receta")}</button><button aria-expanded={mobileMenu} onClick={()=>setMobileMenu(v=>!v)}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 6h16M4 12h16M4 18h16"/></svg>{L("עוד","Más")}</button></nav>
       <div className="hidden md:block"><ScrollToTop /></div>
     </div>
