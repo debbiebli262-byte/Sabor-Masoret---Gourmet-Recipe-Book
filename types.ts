@@ -1,12 +1,14 @@
 
 export enum Language {
-  HE = 'he'
+  HE = 'he',
+  ES = 'es'
 }
 
 export type Unit = 'gram' | 'kg' | 'tsp' | 'tbsp' | 'cup' | 'pinch' | 'drizzle' | 'units' | 'ml' | 'liters';
 
 export interface Category {
   id: string;
+  es?: string;
   [Language.HE]: string;
   userId?: string;
 }
@@ -41,7 +43,7 @@ export interface Recipe {
   image?: string;
   createdAt: number;
   deletedAt?: number|null;
-  es?: RecipeContent;
+  es?: RecipeContent | null;
   categoryId?: string;
   [Language.HE]: RecipeContent;
   userId?: string;
