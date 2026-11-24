@@ -27,6 +27,14 @@ export interface PrepStep {
 
 export interface RecipeContent {
   suggestedCategory?: string;
+  tags?: string[];
+  servings?: number;
+  prepTime?: string;
+  cookTime?: string;
+  difficulty?: string;
+  panSize?: string;
+  storage?: string;
+  credit?: string;
   title: string;
   description: string;
   ingredients: Ingredient[];
