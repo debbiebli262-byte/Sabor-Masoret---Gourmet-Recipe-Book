@@ -1,13 +1,14 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Recipe, Language, RecipeContent, Category } from './types';
-import { UI_STRINGS, categoryLabel } from './constants';
+import { UI_STRINGS, DEFAULT_CATEGORIES, categoryLabel } from './constants';
 import { printCookbook } from './services/printCookbook';
 import FamilyPlanner from './components/FamilyPlanner';
 import RecipeForm from './components/RecipeForm';
 import RecipeView from './components/RecipeView';
 import CategoryManager from './components/CategoryManager';
 import ScrollToTop from './components/ScrollToTop';
+import { INITIAL_RECIPES } from './seedData';
 import { compactRecipeImage, checkRecipeDocumentSize } from './services/recipeImage';
 import { importRecipeFromUrl } from './services/geminiService';
 import { db, auth } from './firebase';
@@ -76,10 +77,6 @@ const App: React.FC = () => {
     catch { alert('לא ניתן להתחבר עם Google. בדקי את הגדרות ההתחברות ונסי שוב.'); }
   };
   const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [recipeLoad,setRecipeLoad]=useState<'loading'|'ready'|'error'>('loading');
-  const [categoryLoad,setCategoryLoad]=useState<'loading'|'ready'|'error'>('loading');
-  const [loadError,setLoadError]=useState('');
-  const [reloadData,setReloadData]=useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
   const language=Language.HE;
 
@@ -122,29 +119,50 @@ const App: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [selectedRecipe, showForm, editingRecipe, selectedCategoryId]);
 
-  // Read-only live listeners: never seed or overwrite documents on an empty/cache snapshot.
-  useEffect(()=>{
-    setRecipeLoad('loading');setCategoryLoad('loading');setLoadError('');
-    const failure=(kind:'recipes'|'categories',err:any)=>{
-      console.error('Firestore load failed',kind,err);
-      if(kind==='recipes')setRecipeLoad('error');else setCategoryLoad('error');
-      setLoadError(String(err?.code||err?.message||'unknown'));
-    };
-    const unsubRecipes=onSnapshot(collection(db,'recipes'),{includeMetadataChanges:true},snapshot=>{
-      const docs=snapshot.docs.map(d=>({...d.data(),id:d.id} as Recipe)).filter(r=>r.he&&typeof r.he.title==='string');
-      if(snapshot.metadata.fromCache){
-        if(docs.length)setRecipes(docs);
-        return;
+  // Firestore Listeners & Auto-seeding
+  useEffect(() => {
+    const recipesQuery = query(
+      collection(db, 'recipes'),
+      orderBy('createdAt', 'desc')
+    );
+    const unsubRecipes = onSnapshot(recipesQuery, async (snapshot) => {
+      if (snapshot.empty && canEdit) {
+        // Seed initial recipes to Firestore if it is completely empty
+        try {
+          for (const r of INITIAL_RECIPES) {
+            await setDoc(doc(db, 'recipes', r.id), r);
+          }
+        } catch (err) {
+          console.error("Failed to seed initial recipes:", err);
+        }
+      } else {
+        const docs = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Recipe));
+        setRecipes(docs);
       }
-      setRecipes(docs);setRecipeLoad('ready');
-    },err=>failure('recipes',err));
-    const unsubCategories=onSnapshot(collection(db,'categories'),{includeMetadataChanges:true},snapshot=>{
-      const docs=snapshot.docs.map(d=>({...d.data(),id:d.id} as Category));
-      if(snapshot.metadata.fromCache){if(docs.length)setCategories(docs);return;}
-      setCategories(docs);setCategoryLoad('ready');
-    },err=>failure('categories',err));
-    return()=>{unsubRecipes();unsubCategories()};
-  },[reloadData]);
+    });
+
+    const categoriesQuery = query(collection(db, 'categories'));
+    const unsubCategories = onSnapshot(categoriesQuery, async (snapshot) => {
+      if (snapshot.empty && canEdit) {
+        // Seed default categories to Firestore if it is completely empty
+        try {
+          for (const cat of DEFAULT_CATEGORIES) {
+            await setDoc(doc(db, 'categories', cat.id), cat);
+          }
+        } catch (err) {
+          console.error("Failed to seed default categories:", err);
+        }
+      } else {
+        const docs = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Category));
+        setCategories(docs);
+      }
+    });
+
+    return () => {
+      unsubRecipes();
+      unsubCategories();
+    };
+  }, [canEdit]);
 
   useEffect(() => {
     const handler = setTimeout(() => setDebouncedQuery(searchQuery), 300);
@@ -358,7 +376,6 @@ const App: React.FC = () => {
       </header>
 
       {showPlanner ? <main className="max-w-7xl mx-auto"><FamilyPlanner recipes={recipes.filter(r=>!r.deletedAt)} onClose={goBook} language={language}/></main> : <>
-      {(recipeLoad==='error'||categoryLoad==='error')&&<div role="alert" className="max-w-5xl mx-auto border border-[#D7C8A9] p-3 mb-4 text-sm text-[#806A47]">תקלה בטעינת הנתונים ({loadError}). אין להסיק מכך שהמתכונים נמחקו. <button className="underline" onClick={()=>setReloadData(n=>n+1)}>נסה שוב</button></div>}
       {canEdit && showTrash && <section className="max-w-5xl mx-auto border p-5 mb-6 bg-white"><h2 className="serif text-2xl">{"סל מחזור"}</h2>{recipes.filter(r=>r.deletedAt).length===0&&<p>{"אין מתכונים בסל"}</p>}{recipes.filter(r=>r.deletedAt).map(r=><div key={r.id} className="flex justify-between border-b p-3"><span>{r.he.title}</span><button className="underline" onClick={async()=>{try{await setDoc(doc(db,'recipes',r.id),{deletedAt:null},{merge:true})}catch{alert('השחזור נכשל')}}}>{"שחזור"}</button></div>)}</section>}
       {canEdit && showImportBar && (
         <div className="max-w-7xl mx-auto mb-12 animate-in slide-in-from-top-4 duration-500">
@@ -456,7 +473,7 @@ const App: React.FC = () => {
         ) : (
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 md:gap-10 lg:gap-16 animate-in fade-in duration-1000">
             {processedRecipes.length === 0 ? (
-              <div className="col-span-full py-20 text-center text-[#806A47]" role="status">{recipeLoad==='loading'?'טוען את ספר המתכונים…':recipeLoad==='error'?'לא ניתן לטעון את המתכונים כרגע.':'אין מתכונים להצגה.'}{recipeLoad!=='ready'&&<div className="mt-4"><button className="border px-4 py-2" onClick={()=>setReloadData(n=>n+1)}>נסה שוב</button></div>}{recipeLoad==='error'&&<p className="text-xs mt-2">{loadError}</p>}</div>
+              <div className="col-span-full py-40 text-center text-[#1C1C1C]/20 serif italic text-3xl">{"אין עדיין מתכונים..."}</div>
             ) : (
               processedRecipes.map(recipe => (
                 <RecipeCard 
