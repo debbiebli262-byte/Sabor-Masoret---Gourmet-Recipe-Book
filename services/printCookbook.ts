@@ -31,7 +31,7 @@ export function printCookbook(recipes: Recipe[], categories: Category[], book = 
     const index=ordered.indexOf(r);
     const meta=c as typeof c & {servings?:number;prepTime?:string;cookTime?:string;difficulty?:string;panSize?:string;storage?:string;credit?:string;tags?:string[]};
     const pic=photo(r,photos,'hero-photo');
-    const ing=groups(c.ingredients||[],i=>i.category||'כללי').map(g=>'<div class="ingredient-group">'+(!['כללי','General','Général'].includes(g.name)?'<h3>'+esc(g.name)+'</h3>':'')+g.items.map(i=>'<div class="ingredient"><span>'+esc(i.name)+'</span><strong>'+esc(Math.round(i.amount*scale*100)/100)+' <small>'+esc(unitLabel(i.unit))+'</small></strong></div>').join('')+'</div>').join('');
+    const ing=groups(c.ingredients||[],i=>normalizeIngredientHeading(i.category)).map(g=>'<div class="ingredient-group">'+(!['כללי','General','Général'].includes(g.name)?'<h3>'+esc(g.name)+'</h3>':'')+g.items.map(i=>'<div class="ingredient"><span>'+esc(i.name)+'</span><strong>'+esc(Math.round(i.amount*scale*100)/100)+' <small>'+esc(unitLabel(i.unit))+'</small></strong></div>').join('')+'</div>').join('');
     let step=0;
     const steps=groups(c.instructions||[],i=>normalizeIngredientHeading(i.category)).map(g=>'<div class="step-group">'+(!['כללי','General','Général'].includes(g.name)?'<h3>'+esc(g.name)+'</h3>':'')+g.items.map(i=>'<div class="step"><b>'+number(++step)+'</b><p>'+esc(i.text)+'</p></div>').join('')+'</div>').join('');
     const facts=[['מנות',meta.servings?String(Math.round(meta.servings*scale*100)/100):scale!==1?'× '+scale:''],['הכנה',meta.prepTime],['בישול',meta.cookTime],['קושי',meta.difficulty],['תבנית',meta.panSize]].filter(x=>x[1]);
@@ -46,11 +46,54 @@ export function printCookbook(recipes: Recipe[], categories: Category[], book = 
 @page{size:${options.paper==='A5'?'A5':'A4'};margin:14mm 15mm 17mm;@bottom-center{content:counter(page);font:9pt Georgia;color:#77684f}}
 *{box-sizing:border-box}html{background:#e8e4dd}body{margin:0;color:#2b2923;font-family:Heebo,Arial,sans-serif;font-size:10.5pt;line-height:1.65}h1,h2,h3,p{margin:0}h1,h2{font-family:'Frank Ruhl Libre',David,Georgia,serif}a{color:inherit}button{font:inherit;cursor:pointer}.sheet{background:white;max-width:${options.paper==='A5'?'118mm':'180mm'};margin:0 auto;padding:0;break-before:page}.sheet:first-child{break-before:auto}.running{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #a69a7e;padding-bottom:3mm;margin-bottom:6mm;font-size:8pt;color:#74654f}.brand{font-family:'Playfair Display',Georgia,serif;letter-spacing:.11em;font-weight:600;font-size:9pt;white-space:nowrap}.brand i{color:#9d8050}.eyebrow{font-size:8pt;letter-spacing:.17em;color:#806a47;font-weight:600}.ornament{font-family:Georgia,serif;font-size:18pt;color:#a68c58;line-height:1}.rule{display:flex;align-items:center;justify-content:center;gap:3mm;margin:3mm auto;color:#b29a69}.rule:before,.rule:after{content:"";height:1px;background:#c4b38c;width:22mm}.cover{min-height:${options.paper==='A5'?'174mm':'249mm'};display:flex;align-items:stretch;justify-content:center;text-align:center}.cover-frame{border:1px solid #9a8053;outline:1px solid #d7c8a9;outline-offset:-3mm;flex:1;margin:2mm;padding:10mm 5mm;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4mm}.cover-title{font-family:'Playfair Display',Georgia,serif;font-size:${options.paper==='A5'?'32pt':'49pt'};line-height:1.02;letter-spacing:.07em;font-weight:500;color:#333a31}.cover-title i{font-size:.58em;color:#a08452}.cover-sub{font:600 24pt 'Frank Ruhl Libre',David,serif}.cover-line{width:35mm;border-top:1px solid #b59d70}.cover-gallery{display:flex;gap:2mm;justify-content:center;max-width:100%;margin:3mm 0}.cover-gallery:empty{display:none}.cover-photo{width:28mm;height:32mm;object-fit:cover}.edition{font:10pt Georgia;letter-spacing:.2em;color:#806a47}.cover small{color:#6d675a}.contents h1,.chapter h1{font-size:33pt;line-height:1.2;margin:3mm 0}.contents>.eyebrow,.contents>h1,.toc-note{text-align:center}.toc-note{font-size:8pt;color:#766e61;margin-bottom:6mm}.toc-group{margin:5mm 0}.toc-heading{display:flex;gap:3mm;align-items:baseline;border-bottom:1px solid #c4b38c;padding-bottom:1mm;break-after:avoid}.toc-heading span,.index{font:11pt Georgia;color:#9a8053}.toc-heading h2{font-size:19pt;color:#394338}.toc-row{display:flex;align-items:baseline;gap:2mm;text-decoration:none;padding:2mm 0;break-inside:avoid}.dots{flex:1;border-bottom:1px dotted #bcb3a1}.chapter-center{text-align:center;min-height:${options.paper==='A5'?'125mm':'198mm'};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3mm}.chapter-no{font:46pt 'Playfair Display',Georgia;color:#b9a77f}.chapter-photo{width:100%;max-height:${options.paper==='A5'?'62mm':'94mm'};object-fit:cover;margin-top:6mm}.recipe-head{text-align:center;break-inside:avoid}.recipe-head h1{font-size:${options.paper==='A5'?'26pt':'34pt'};line-height:1.18;color:#333a31;margin:2mm 0}.intro{font-size:10.5pt;color:#5c554b;max-width:145mm;margin:0 auto 5mm;white-space:pre-wrap}.hero-photo{display:block;width:100%;height:${options.paper==='A5'?'44mm':'65mm'};object-fit:cover;object-position:center;margin:3mm 0 5mm;break-inside:avoid}.facts{display:flex;flex-wrap:wrap;justify-content:center;gap:4mm;border-block:1px solid #d5c9b1;padding:2mm 0;margin:4mm 0;break-inside:avoid}.facts div{min-width:18mm;text-align:center}.facts small{display:block;color:#806a47;font-size:8pt}.facts b{font-weight:500}.recipe-body{display:block}.recipe-body h2{font-size:19pt;color:#394338;border-bottom:1px solid #b6a17b;padding-bottom:2mm;margin:4mm 0 3mm;break-after:avoid}.recipe-body h2 span{font:10pt Georgia;color:#a68c58;margin-left:2mm}.recipe-body h3,.note h3{font-size:10pt;font-weight:700;color:#806a47;margin:3mm 0 1mm;break-after:avoid}.ingredients{margin-bottom:5mm}.ingredient-group{margin-bottom:3mm}.ingredient{display:flex;justify-content:space-between;align-items:baseline;gap:3mm;padding:1.3mm 0;border-bottom:1px dotted #d9d1c1;break-inside:avoid}.ingredient strong{white-space:nowrap;font-weight:600;font-variant-numeric:tabular-nums;color:#394338}.ingredient small{font-weight:400;font-size:9pt}.step{display:flex;gap:3mm;margin-bottom:3mm;break-inside:avoid}.step b{font:12pt Georgia;color:#9a8053;min-width:6mm;padding-top:1mm}.step p,.note p{white-space:pre-wrap;overflow-wrap:anywhere;orphans:2;widows:2}.notes{border-top:1px solid #b6a17b;margin-top:5mm;padding-top:2mm}.note{border-right:2px solid #b6a17b;padding:1mm 3mm;margin:3mm 0;break-inside:avoid}.credit{font-size:8pt;color:#726b60;overflow-wrap:anywhere;margin-top:4mm}.recipe-footer{display:flex;align-items:center;justify-content:center;gap:3mm;border-top:1px solid #d5c9b1;margin-top:6mm;padding-top:3mm;color:#806a47;font-size:9pt;break-inside:avoid}.toolbar{position:sticky;top:0;background:#333a31;color:white;padding:12px;display:flex;justify-content:center;gap:12px;z-index:9}.toolbar button,.toolbar select{border:1px solid #c8b68e;background:white;color:#333a31;padding:6px 12px;border-radius:3px}.toolbar label{display:flex;align-items:center;gap:5px}.no-photos img{display:none!important}
 @media screen{.sheet{max-width:${options.paper==='A5'?'148mm':'210mm'};margin:18px auto;padding:14mm 15mm;box-shadow:0 3px 18px #0002}.cover-frame{min-height:${options.paper==='A5'?'165mm':'235mm'}}}
-@media print{html{background:white}.toolbar{display:none!important}.sheet{margin:0;padding:0;max-width:none;box-shadow:none}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}.recipe-head,.facts,.hero-photo{break-inside:avoid}.step{break-inside:auto}.step b{break-after:avoid}}
+/* Keep each main section together whenever it can fit on a full page. */
+.ingredients,.directions{display:block;break-inside:avoid;page-break-inside:avoid}
+.ingredient-group,.step-group{break-inside:avoid;page-break-inside:avoid}
+.ingredients h2,.directions h2,.ingredient-group h3,.step-group h3{break-after:avoid;page-break-after:avoid}
+.ingredients.compact .ingredient{padding:.6mm 0;line-height:1.4}
+.ingredients.compact .ingredient-group{margin-bottom:1.5mm}
+.ingredients.compact h3{margin-top:1.5mm}
+.ingredients.compact h2{margin:2mm 0}
+.ingredients.dense .ingredient{padding:.35mm 0;font-size:9.5pt;line-height:1.3}
+.ingredients.dense .ingredient small{font-size:8.5pt}
+.ingredients.dense h2{font-size:16pt}
+.directions.compact .step{margin-bottom:1.6mm;line-height:1.45}
+.directions.compact h3{margin-top:1.5mm}
+.directions.compact h2{margin:2mm 0}
+@media print{
+ html{background:white}.toolbar{display:none!important}
+ .sheet{margin:0;padding:0;max-width:none;box-shadow:none}
+ body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+ .recipe-head,.facts,.hero-photo{break-inside:avoid}
+ .ingredients,.directions{break-inside:avoid;page-break-inside:avoid}
+ .ingredients.oversize,.directions.oversize{break-inside:auto;page-break-inside:auto}
+ .step,.ingredient{break-inside:avoid;page-break-inside:avoid}
+ .step b{break-after:avoid}
+}
 `;
   w.document.write('<!doctype html><html lang="'+'he'+'" dir="'+'rtl'+'"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(book?'Sabor & Masoret':ordered[0].he.title)+'</title><style>'+css+'</style></head><body><div class="toolbar"><button id="print">'+"הדפסה / שמירה כ-PDF"+'</button><label><input type="checkbox" id="photos" '+(photos?'checked':'')+'> '+"תמונות"+'</label><button id="close">'+"סגירה"+'</button></div><main>'+cover+pages+'</main></body></html>');
   w.document.close();
-  w.document.getElementById('print')?.addEventListener('click',()=>w.print());
+  // The screen sheet uses exactly the same inner width as the printed sheet.
+  // Measure whole sections before printing; tighten only sections that exceed a full page.
+  const preparePagination=()=>{
+    const pageHeightMm=options.paper==='A5'?179:266;
+    // Reserve a small safety margin for borders and browser rounding.
+    const available=(pageHeightMm-4)*96/25.4;
+    const blocks=w.document.querySelectorAll<HTMLElement>('.recipe-body > .ingredients,.recipe-body > .directions');
+    blocks.forEach(el=>{
+      el.classList.remove('compact','dense','oversize');
+      const height=()=>{const style=w.getComputedStyle(el);return el.getBoundingClientRect().height+(parseFloat(style.marginTop)||0)+(parseFloat(style.marginBottom)||0)};
+      if(height()>available)el.classList.add('compact');
+      if(height()>available&&el.classList.contains('ingredients'))el.classList.add('dense');
+      if(height()>available)el.classList.add('oversize');
+    });
+  };
+  w.addEventListener('beforeprint',preparePagination);
+  w.document.getElementById('print')?.addEventListener('click',async()=>{
+    try{await w.document.fonts.ready}catch{}
+    preparePagination();
+    w.print();
+  });
   w.document.getElementById('close')?.addEventListener('click',()=>w.close());
   w.document.getElementById('photos')?.addEventListener('change',e=>w.document.body.classList.toggle('no-photos',!(e.target as HTMLInputElement).checked));
 }
