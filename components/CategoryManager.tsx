@@ -14,7 +14,7 @@ interface Props {
 
 const CategoryManager: React.FC<Props> = ({ categories, language, onAdd, onUpdate, onDelete, onClose }) => {
   const t = UI_STRINGS[language];
-  const L=(he:string,sp:string)=>language===Language.ES?sp:he;
+  const L=(he:string,sp:string)=>he;
   const [newCatHe, setNewCatHe] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -58,8 +58,8 @@ const CategoryManager: React.FC<Props> = ({ categories, language, onAdd, onUpdat
                   <div className="flex-1 mr-4">
                     <input 
                       className="w-full p-2 text-xs border border-[#1C1C1C]/10" 
-                      value={language===Language.ES?(cat.es||''):cat.he} 
-                      onChange={e => onUpdate({ ...cat, [language]: e.target.value })} 
+                      value={cat.he} 
+                      onChange={e => onUpdate({ ...cat, [Language.HE]: e.target.value })} 
                     />
                   </div>
                 ) : (
