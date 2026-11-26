@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Recipe, Language, RecipeContent, Category } from './types';
 import { UI_STRINGS, DEFAULT_CATEGORIES, categoryLabel } from './constants';
 import { printCookbook } from './services/printCookbook';
@@ -9,7 +9,7 @@ import RecipeView from './components/RecipeView';
 import CategoryManager from './components/CategoryManager';
 import ScrollToTop from './components/ScrollToTop';
 import { INITIAL_RECIPES } from './seedData';
-import { importRecipeFromUrl, generateRecipeImage, translateRecipe } from './services/geminiService';
+import { importRecipeFromUrl } from './services/geminiService';
 import { db, auth } from './firebase';
 import { GoogleAuthProvider, onIdTokenChanged, signInWithPopup, signOut, User } from 'firebase/auth';
 
@@ -22,16 +22,16 @@ import {
   setDoc, 
   deleteDoc, 
   addDoc,
-  orderBy, runTransaction
+  orderBy
 } from 'firebase/firestore';
 
 type SortOption = 'newest' | 'oldest' | 'alphabetical';
 
 const RecipeCard = React.memo(({ recipe, language, onClick, categories, onUpdate }: { recipe: Recipe, language: Language, onClick: () => void, categories: Category[], onUpdate: (r: Recipe) => void }) => {
-  const content = (language===Language.ES?recipe.es:null)||recipe.he;
+  const content = recipe.he;
   const category = categories.find(c => c.id === recipe.categoryId);
   const catLabel = categoryLabel(category,language);
-  const L=(he:string,sp:string)=>language===Language.ES?sp:he;
+  const L=(he:string,_sp:string)=>he;
 
   return (
     <div onClick={onClick} className="mobile-card group cursor-pointer flex flex-col items-center">
@@ -77,67 +77,10 @@ const App: React.FC = () => {
   };
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [language, setLanguage] = useState<Language>(()=>{try{return localStorage.getItem('sabor-language')==='es'?Language.ES:Language.HE}catch{return Language.HE}});
-  const es=language===Language.ES;
-  const L=(he:string,sp:string)=>es?sp:he;
-  useEffect(()=>{document.documentElement.lang=language;document.documentElement.dir=es?'ltr':'rtl';try{localStorage.setItem('sabor-language',language)}catch{}},[language]);
-  const [translationProgress,setTranslationProgress]=useState('');
-  const [translationError,setTranslationError]=useState('');
-  const migrationRunning=useRef(false);
-  const retryAt=useRef(new Map<string,number>());
-  const failures=useRef(new Map<string,number>());
-  const [retryTick,setRetryTick]=useState(0);
-  const pendingTranslations=recipes.filter(r=>!r.deletedAt&&!r.es);
-  useEffect(()=>{
-    if(!canEdit||!pendingTranslations.length)return;
-    const timer=window.setInterval(()=>setRetryTick(t=>t+1),15000);
-    return()=>window.clearInterval(timer);
-  },[canEdit,pendingTranslations.length]);
-  useEffect(()=>{
-    if(!canEdit||migrationRunning.current)return;
-    const pending=recipes.filter(r=>!r.deletedAt&&!r.es&&(retryAt.current.get(r.id)||0)<=Date.now());
-    if(!pending.length)return;
-    migrationRunning.current=true;
-    const uid=auth.currentUser?.uid;
-    void (async()=>{
-      try{
-        for(let i=0;i<pending.length;i++){
-          if(!uid||auth.currentUser?.uid!==uid)break;
-          const recipe=pending[i];
-          setTranslationProgress((i+1)+' / '+pending.length);
-          try{
-            const translated=await translateRecipe(recipe.he,Language.ES);
-            if(!translated)throw new Error('Translation failed');
-            await runTransaction(db,async tx=>{
-              const ref=doc(db,'recipes',recipe.id);
-              const current=await tx.get(ref);
-              if(!current.exists()||current.data().deletedAt||current.data().es)return;
-              if(JSON.stringify(current.data().he)!==JSON.stringify(recipe.he))return;
-              tx.update(ref,{es:translated});
-            });
-            retryAt.current.set(recipe.id,Date.now()+60000);
-            failures.current.delete(recipe.id);
-            setTranslationError('');
-          }catch(e){
-            const n=(failures.current.get(recipe.id)||0)+1;
-            failures.current.set(recipe.id,n);
-            const message=e instanceof Error?e.message:String(e);
-            setTranslationError(message);
-            retryAt.current.set(recipe.id,Date.now()+Math.min(600000,30000*2**Math.min(n,5)));
-            if(/429|503|404|401|403|502|מכסת|מורשה|הרשאת|מודל|שירות/.test(message)){
-              for(const remaining of pending.slice(i+1))retryAt.current.set(remaining.id,Date.now()+60000);
-              break;
-            }
-          }
-        }
-      }finally{migrationRunning.current=false;setTranslationProgress('')}
-    })();
-  },[canEdit,recipes,retryTick]);
-  const printEdition=(items:Recipe[],book=true)=>{
-    const active=items.filter(r=>!r.deletedAt);
-    if(es&&active.some(r=>!r.es)){alert(L('יש לתרגם את המתכונים לפני ההדפסה','Hay traducciones pendientes. Ingresá como editor y dejá que se complete la traducción automática.'));return}
-    printCookbook(es?active.map(r=>({...r,he:r.es!})):active,categories,book,1,es?{language:'es'}:{});
-  };
+  const language=Language.HE;
+  const L=(he:string,_sp:string)=>he;
+  useEffect(()=>{document.documentElement.lang='he';document.documentElement.dir='rtl';try{localStorage.removeItem('sabor-language')}catch{}},[]);
+  const printEdition=(items:Recipe[],book=true)=>printCookbook(items.filter(r=>!r.deletedAt),categories,book);
   const [showForm, setShowForm] = useState(false);
   const [selectedRecipeState, setSelectedRecipe] = useState<Recipe | null>(null);
   const selectedRecipe=selectedRecipeState ? (recipes.find(r=>r.id===selectedRecipeState.id)||selectedRecipeState):null;
@@ -226,27 +169,15 @@ const App: React.FC = () => {
   }, [searchQuery]);
 
   const handleSaveRecipe = useCallback(async (recipeData: Partial<Recipe>) => {
-    if (!canEdit) return false;
-    try {
-      const original=recipeData.originalLanguage==='es'?'es':'he';
-      const source=original==='es'?recipeData.es:recipeData.he;
-      if(!source)throw new Error('Missing recipe');
-      const other=await translateRecipe(source,original==='es'?Language.HE:Language.ES);
-      if(!other)throw new Error('Translation failed');
-      const bilingual={...recipeData,originalLanguage:original,he:original==='he'?source:other,es:original==='es'?source:other};
-      if (editingRecipe) {
-        await setDoc(doc(db,'recipes',editingRecipe.id),bilingual,{merge:true});
-        setEditingRecipe(null);
-      } else {
-        await addDoc(collection(db,'recipes'),{...bilingual,createdAt:Date.now()});
-      }
+    if(!canEdit)return false;
+    try{
+      if(!recipeData.he)throw Error('Missing recipe');
+      const {es,originalLanguage,...hebrewData}=recipeData;
+      if(editingRecipe){await setDoc(doc(db,'recipes',editingRecipe.id),hebrewData,{merge:true});setEditingRecipe(null)}
+      else await addDoc(collection(db,'recipes'),{...hebrewData,createdAt:Date.now()});
       setShowForm(false);setDraft(null);return true;
-    } catch(e) {
-      console.error('Recipe save failed',e);
-      alert(language===Language.ES?'No se pudo traducir o guardar. El formulario conserva tu receta; volvé a intentar.':'לא ניתן לתרגם או לשמור כרגע. המתכון נשאר בטופס; אפשר לנסות שוב.');
-      return false;
-    }
-  }, [editingRecipe,canEdit,language]);
+    }catch(e){console.error('Recipe save failed',e);alert('שמירת המתכון נכשלה. המתכון נשאר בטופס; אפשר לנסות שוב.');return false}
+  },[editingRecipe,canEdit]);
 
   const handleAddCategory = useCallback(async (cat: Omit<Category, 'id'>) => {
     if (!canEdit) return null;
@@ -286,17 +217,17 @@ const App: React.FC = () => {
     if (!importUrl.trim() && !importText.trim() && !importFile) return;
     setIsImporting(true);
     try {
-      const scrapedContent = await importRecipeFromUrl(importUrl, 'auto', importText, importFile || undefined);
+      const scrapedContent = await importRecipeFromUrl(importUrl, Language.HE, importText, importFile || undefined);
       if (scrapedContent) {
-        const categoryId = categories.find(c => c.he === scrapedContent.suggestedCategory || c.es === scrapedContent.suggestedCategory)?.id || '';
+        const categoryId = categories.find(c => c.he === scrapedContent.suggestedCategory)?.id || '';
         const recipesCol = collection(db, 'recipes');
         const newRecipe = {
           createdAt: Date.now(),
           categoryId,
           sourceUrl: importUrl.trim(),
-          originalLanguage: scrapedContent.sourceLanguage==='es'?'es' as const:'he' as const,
+
           [Language.HE]: scrapedContent,
-          ...(scrapedContent.sourceLanguage==='es'?{es:scrapedContent}:{}) ,
+
         };
         setDraft({...newRecipe,id:'draft'}); setEditingRecipe(null); setSelectedRecipe(null); setShowForm(true); setImportFile(null); setFileName('');
         setImportText('');
@@ -339,7 +270,7 @@ const App: React.FC = () => {
 
       // Text Filter
       if (terms.length === 0) return true;
-      const contents = [recipe.he,recipe.es].filter(Boolean);
+      const contents = [recipe.he].filter(Boolean);
       return terms.every(term => contents.some(content => {
         const titleMatch = searchInTitle && content.title.toLowerCase().includes(term);
         const ingredientMatch = searchInIngredients && content.ingredients.some(ing => ing.name.toLowerCase().includes(term));
@@ -360,7 +291,7 @@ const App: React.FC = () => {
   }, [recipes, debouncedQuery, searchInTitle, searchInIngredients, sortOption, selectedCategoryId]);
 
   return (
-    <div className="mobile-main min-h-screen pb-32 px-3 md:px-12 transition-colors duration-700 font-heebo" dir={es?'ltr':'rtl'}>
+    <div className="mobile-main min-h-screen pb-32 px-3 md:px-12 transition-colors duration-700 font-heebo" dir="rtl">
       <header className="glass-header site-header py-6 mb-8">
         <div className="header-layout max-w-7xl mx-auto flex flex-col items-center gap-4">
           <div className="flex flex-col items-center">
@@ -370,7 +301,7 @@ const App: React.FC = () => {
             >
               SABOR & MASORET
             </h1>
-            <span className="text-[10px] tracking-[0.3em] uppercase text-[#8B7355] mt-1 font-semibold">L'Art de la Cuisine</span><div className="flex gap-2 mt-3" dir="ltr">{[Language.HE,Language.ES].map(lang=><button key={lang} aria-pressed={language===lang} className={(language===lang?'bg-[#333A31] text-white':'border border-[#D7C8A9]')+' px-4 py-2 text-sm'} onClick={()=>setLanguage(lang)} aria-label={lang===Language.HE?'עברית':'Castellano (Argentina)'} title={lang===Language.HE?'עברית':'Castellano (Argentina)'}>{lang===Language.HE?<svg aria-hidden="true" width="32" height="22" viewBox="0 0 32 22"><rect width="32" height="22" rx="1" fill="white"/><path d="M0 4h32M0 18h32" stroke="#1649A0" strokeWidth="3"/><path d="M16 6.5l4.4 7.5h-8.8z M16 15.5l-4.4-7.5h8.8z" fill="none" stroke="#1649A0" strokeWidth="1.1"/></svg>:<svg aria-hidden="true" width="32" height="22" viewBox="0 0 32 22"><rect width="32" height="22" rx="1" fill="#75AADB"/><path d="M0 7.33h32v7.34H0z" fill="white"/>{Array.from({length:16},(_,i)=><path key={i} d="M16 7.8v1.6" stroke="#B77B24" strokeWidth=".55" transform={'rotate('+i*22.5+' 16 11)'}/>)}<circle cx="16" cy="11" r="1.65" fill="#F6B40E" stroke="#B77B24" strokeWidth=".35"/></svg>}</button>)}</div>
+            <span className="text-[10px] tracking-[0.3em] uppercase text-[#8B7355] mt-1 font-semibold">L'Art de la Cuisine</span>
           </div>
           
           {!showPlanner && <div className="search-area max-w-2xl w-full">
@@ -441,8 +372,6 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      {!canEdit&&pendingTranslations.length>0&&<div className="max-w-7xl mx-auto mb-4 border border-[#D7C8A9] p-3 text-sm text-[#806A47]">{L("יש "+pendingTranslations.length+" מתכונים שטרם תורגמו. יש להתחבר לחשבון עריכה כדי להשלים אותם אוטומטית.","Hay "+pendingTranslations.length+" recetas pendientes de traducción. Ingresá con una cuenta de edición para completarlas automáticamente.")} {!user&&<button onClick={login} className="underline">{L("כניסה עם Google","Ingresar con Google")}</button>}</div>}
-      {canEdit&&pendingTranslations.length>0&&<div role="status" className="max-w-7xl mx-auto mb-4 border border-[#D7C8A9] p-3 text-sm text-[#806A47]">{translationError?L("התרגום האוטומטי נתקל בתקלה: ","La traducción automática encontró un error: ")+translationError:L("משלים תרגום אוטומטי של מתכונים קיימים: ","Completando traducciones automáticamente: ")+(translationProgress||pendingTranslations.length)}{translationError&&<span className="block text-xs mt-1">{L("המערכת תנסה שוב אוטומטית כל עוד האתר פתוח. המתכונים המקוריים נשמרו.","Se reintentará automáticamente mientras el sitio esté abierto. Las recetas originales se conservan.")}</span>}</div>}
       {showPlanner ? <main className="max-w-7xl mx-auto"><FamilyPlanner recipes={recipes.filter(r=>!r.deletedAt)} onClose={goBook} language={language}/></main> : <>
       {canEdit && showTrash && <section className="max-w-5xl mx-auto border p-5 mb-6 bg-white"><h2 className="serif text-2xl">{L("סל מחזור","Papelera")}</h2>{recipes.filter(r=>r.deletedAt).length===0&&<p>{L("אין מתכונים בסל","La papelera está vacía")}</p>}{recipes.filter(r=>r.deletedAt).map(r=><div key={r.id} className="flex justify-between border-b p-3"><span>{r.he.title}</span><button className="underline" onClick={async()=>{try{await setDoc(doc(db,'recipes',r.id),{deletedAt:null},{merge:true})}catch{alert('השחזור נכשל')}}}>{L("שחזור","Restaurar")}</button></div>)}</section>}
       {canEdit && showImportBar && (
