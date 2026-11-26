@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Recipe, Language, RecipeContent, Unit } from '../types';
 import { UI_STRINGS, UNITS } from '../constants';
+import { ingredientGroups } from '../services/ingredientGroups';
 import { generateRecipeImage } from '../services/geminiService';
 import { printCookbook } from '../services/printCookbook';
 
@@ -74,12 +75,7 @@ const RecipeView: React.FC<Props> = ({ recipe, language, onUpdate, onEdit, onDel
     );
   }
 
-  const groupedIngredients = (content.ingredients || []).reduce((acc: any, ing) => {
-    const cat = ing.category || 'Général';
-    acc[cat] = acc[cat] || [];
-    acc[cat].push(ing);
-    return acc;
-  }, {});
+  const groupedIngredients = ingredientGroups(content.ingredients || []);
 
   const groupedInstructions = (content.instructions || []).reduce((acc: any, step) => {
     const cat = step.category || 'Général';
@@ -199,8 +195,8 @@ const RecipeView: React.FC<Props> = ({ recipe, language, onUpdate, onEdit, onDel
           <div className="detail-ingredients lg:col-span-4 border-l-[0.5px] border-[#1C1C1C]/10 pl-6">
             <h2 className="serif text-lg uppercase tracking-widest text-[#8B7355] mb-6 font-bold italic">{t.ingredients}</h2>
             <div className="space-y-4">
-              {Object.entries(groupedIngredients).map(([cat, ings]: [string, any]) => (
-                <div key={cat} className="space-y-2">
+              {groupedIngredients.map(({name:cat,items:ings},index) => (
+                <div key={index} className="space-y-2">
                   {!['כללי','General','Général'].includes(cat)&&<h3 className="text-xs font-bold text-[#806A47] border-b pb-1">{cat}</h3>}
                   <ul className="space-y-1">
                     {ings.map((ing: any) => (
