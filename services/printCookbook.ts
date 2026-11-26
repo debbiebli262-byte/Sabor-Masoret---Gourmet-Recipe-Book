@@ -1,4 +1,5 @@
 import { Recipe, Category, Language } from '../types';
+import { normalizeIngredientHeading } from './ingredientGroups';
 import { UNITS, categoryLabel } from '../constants';
 
 type Options = {paper?: 'A4'|'A5', photos?: boolean};
@@ -32,7 +33,7 @@ export function printCookbook(recipes: Recipe[], categories: Category[], book = 
     const pic=photo(r,photos,'hero-photo');
     const ing=groups(c.ingredients||[],i=>i.category||'כללי').map(g=>'<div class="ingredient-group">'+(!['כללי','General','Général'].includes(g.name)?'<h3>'+esc(g.name)+'</h3>':'')+g.items.map(i=>'<div class="ingredient"><span>'+esc(i.name)+'</span><strong>'+esc(Math.round(i.amount*scale*100)/100)+' <small>'+esc(unitLabel(i.unit))+'</small></strong></div>').join('')+'</div>').join('');
     let step=0;
-    const steps=groups(c.instructions||[],i=>i.category||'כללי').map(g=>'<div class="step-group">'+(!['כללי','General','Général'].includes(g.name)?'<h3>'+esc(g.name)+'</h3>':'')+g.items.map(i=>'<div class="step"><b>'+number(++step)+'</b><p>'+esc(i.text)+'</p></div>').join('')+'</div>').join('');
+    const steps=groups(c.instructions||[],i=>normalizeIngredientHeading(i.category)).map(g=>'<div class="step-group">'+(!['כללי','General','Général'].includes(g.name)?'<h3>'+esc(g.name)+'</h3>':'')+g.items.map(i=>'<div class="step"><b>'+number(++step)+'</b><p>'+esc(i.text)+'</p></div>').join('')+'</div>').join('');
     const facts=[['מנות',meta.servings?String(Math.round(meta.servings*scale*100)/100):scale!==1?'× '+scale:''],['הכנה',meta.prepTime],['בישול',meta.cookTime],['קושי',meta.difficulty],['תבנית',meta.panSize]].filter(x=>x[1]);
     const notes=[['הוראות תנור',c.ovenInstructions],['הערות השף',c.notes],['אחסון והקפאה',meta.storage]].filter(x=>x[1]).map(x=>'<aside class="note"><h3>'+esc(x[0])+'</h3><p>'+esc(x[1])+'</p></aside>').join('');
     const source=r.sourceUrl&&/^https?:\/\//i.test(r.sourceUrl)?'<a href="'+esc(r.sourceUrl)+'">'+"למקור המתכון"+'</a>':'';
