@@ -9,6 +9,7 @@ import RecipeView from './components/RecipeView';
 import CategoryManager from './components/CategoryManager';
 import ScrollToTop from './components/ScrollToTop';
 import { INITIAL_RECIPES } from './seedData';
+import { compactRecipeImage, checkRecipeDocumentSize } from './services/recipeImage';
 import { importRecipeFromUrl } from './services/geminiService';
 import { db, auth } from './firebase';
 import { GoogleAuthProvider, onIdTokenChanged, signInWithPopup, signOut, User } from 'firebase/auth';
@@ -173,10 +174,12 @@ const App: React.FC = () => {
     try{
       if(!recipeData.he)throw Error('Missing recipe');
       const {es,originalLanguage,...hebrewData}=recipeData;
+      if(typeof hebrewData.image==='string')hebrewData.image=await compactRecipeImage(hebrewData.image);
+      checkRecipeDocumentSize(editingRecipe?{...editingRecipe,...hebrewData}:hebrewData);
       if(editingRecipe){await setDoc(doc(db,'recipes',editingRecipe.id),hebrewData,{merge:true});setEditingRecipe(null)}
       else await addDoc(collection(db,'recipes'),{...hebrewData,createdAt:Date.now()});
       setShowForm(false);setDraft(null);return true;
-    }catch(e){console.error('Recipe save failed',e);alert('שמירת המתכון נכשלה. המתכון נשאר בטופס; אפשר לנסות שוב.');return false}
+    }catch(e){console.error('Recipe save failed',e);alert((e instanceof Error&&/תמונה|גדול מדי/.test(e.message)?e.message:'שמירת המתכון נכשלה.')+' המתכון נשאר בטופס; אפשר לנסות שוב.');return false}
   },[editingRecipe,canEdit]);
 
   const handleAddCategory = useCallback(async (cat: Omit<Category, 'id'>) => {
@@ -462,7 +465,7 @@ const App: React.FC = () => {
               recipe={selectedRecipe} 
               canEdit={canEdit}
               language={language} 
-              onUpdate={async (updated) => { if (!canEdit) return; try { await setDoc(doc(db, "recipes", updated.id), {image:updated.image||''}, { merge: true }); setSelectedRecipe(updated); } catch { alert("שמירת התמונה נכשלה"); } }}
+              onUpdate={async (updated) => { if (!canEdit) return; try { const image=await compactRecipeImage(updated.image||'');checkRecipeDocumentSize({...updated,image});await setDoc(doc(db, "recipes", updated.id), {image}, { merge: true }); setSelectedRecipe({...updated,image}); } catch { alert("שמירת התמונה נכשלה"); } }}
               onEdit={() => { setEditingRecipe(selectedRecipe); setSelectedRecipe(null); }}
               onDelete={() => handleDeleteRecipe(selectedRecipe.id)}
             />
