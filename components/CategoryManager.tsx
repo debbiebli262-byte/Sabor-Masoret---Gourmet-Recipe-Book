@@ -14,7 +14,7 @@ interface Props {
 
 const CategoryManager: React.FC<Props> = ({ categories, language, onAdd, onUpdate, onDelete, onClose }) => {
   const t = UI_STRINGS[language];
-  const L=(he:string,sp:string)=>he;
+
   const [newCatHe, setNewCatHe] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -73,7 +73,7 @@ const CategoryManager: React.FC<Props> = ({ categories, language, onAdd, onUpdat
                     onClick={() => setEditingId(editingId === cat.id ? null : cat.id)}
                     className="text-[#1C1C1C]/30 hover:text-[#8B7355] text-[10px] font-bold uppercase tracking-widest"
                   >
-                    {editingId === cat.id ? 'OK' : L('ערוך','Editar')}
+                    {editingId === cat.id ? 'OK' : 'ערוך'}
                   </button>
                   <button 
                     onClick={() => onDelete(cat.id)}
