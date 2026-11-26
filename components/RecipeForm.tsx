@@ -85,7 +85,7 @@ const UnitSelect: React.FC<{
 
 const RecipeForm: React.FC<Props> = ({ language, initialRecipe, draft, categories, onSave, onCancel, onAddCategory }) => {
   const t = UI_STRINGS[language];
-  const L=(he:string,sp:string)=>he;
+
   const [saving,setSaving]=useState(false);
 
   const [content, setContent] = useState<RecipeContent>({
@@ -215,7 +215,7 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, draft, categorie
     <div className="recipe-form bg-white p-8 md:p-16 border-[0.5px] border-[#1C1C1C]/10 shadow-2xl max-w-5xl mx-auto animate-in fade-in duration-700 relative">
       <div className="text-center mb-16">
         <h2 className="serif text-4xl font-light text-[#1C1C1C] mb-4 uppercase tracking-tighter">
-          {initialRecipe ? L('עריכת מתכון','Editar receta') : L('מתכון חדש','Nueva receta')}
+          {initialRecipe ? 'עריכת מתכון' : 'מתכון חדש'}
         </h2>
         <div className="w-16 h-[1px] bg-[#8B7355] mx-auto"></div>
       </div>
@@ -298,7 +298,7 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, draft, categorie
           </div>
 
           <div className="space-y-6">
-             <label className="text-[10px] uppercase tracking-[0.4em] text-[#1C1C1C]/40 font-bold block mb-3">{L("ויזואליה של המנה","Imagen del plato")}</label>
+             <label className="text-[10px] uppercase tracking-[0.4em] text-[#1C1C1C]/40 font-bold block mb-3">{"ויזואליה של המנה"}</label>
              <div className="bg-[#F5F5F0] p-6 space-y-4">
                 <input
                   type="text"
@@ -327,10 +327,10 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, draft, categorie
             <button onClick={addIngredient} className="text-[#8B7355] text-[10px] font-bold uppercase tracking-widest hover:text-[#1C1C1C] transition-colors">+ {t.addIngredient}</button>
           </div>
           <div className="bg-[#FAF9F6] border border-[#8B7355]/20 p-4 mb-6 space-y-3">
-            <label htmlFor="bulk-ingredients" className="block font-medium text-sm">{L("הדבקה מהירה של מצרכים","Carga rápida de ingredientes")}</label>
+            <label htmlFor="bulk-ingredients" className="block font-medium text-sm">{"הדבקה מהירה של מצרכים"}</label>
             <p className="text-xs text-[#6B6255]">מצרך אחד בכל שורה, למשל 250 גרם קמח או קמח 250 גרם. הרשימה תתווסף למצרכים הקיימים.</p>
             <textarea id="bulk-ingredients" rows={5} className="w-full bg-white border border-[#8B7355]/20 p-3 text-sm outline-none" value={bulkIngredients} onChange={e=>{setBulkIngredients(e.target.value);setBulkMessage('')}} placeholder={'250 גרם קמח\n100 גרם סוכר\n2 ביצים\nחצי כפית מלח'}/>
-            <button type="button" disabled={!bulkIngredients.trim()} onClick={createIngredients} className="bg-[#333A31] text-white px-5 py-3 text-sm disabled:opacity-40">{L("צור רשימת מצרכים","Crear lista de ingredientes")}</button>
+            <button type="button" disabled={!bulkIngredients.trim()} onClick={createIngredients} className="bg-[#333A31] text-white px-5 py-3 text-sm disabled:opacity-40">{"צור רשימת מצרכים"}</button>
             {bulkMessage && <p role="status" className="text-sm">{bulkMessage}</p>}
           </div>
           <div className="space-y-3">
@@ -352,9 +352,9 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, draft, categorie
             <button onClick={addStep} className="text-[#8B7355] text-[10px] font-bold uppercase tracking-widest hover:text-[#1C1C1C] transition-colors">+ {t.addStep}</button>
           </div>
           <div className="bg-[#FAF9F6] border border-[#8B7355]/20 p-4 mb-6 space-y-3">
-            <label htmlFor="bulk-steps" className="block font-medium text-sm">{L("הדבקה מהירה של הוראות הכנה","Carga rápida de preparación")}</label>
-            <textarea id="bulk-steps" rows={5} value={bulkSteps} onChange={e=>setBulkSteps(e.target.value)} className="w-full bg-white border p-3 text-sm" placeholder={L("כל שלב בשורה נפרדת","Un paso por línea")}/>
-            <button type="button" disabled={!bulkSteps.trim()} onClick={createSteps} className="bg-[#333A31] text-white px-5 py-3 text-sm disabled:opacity-40">{L("צור שלבי הכנה","Crear pasos")}</button>
+            <label htmlFor="bulk-steps" className="block font-medium text-sm">{"הדבקה מהירה של הוראות הכנה"}</label>
+            <textarea id="bulk-steps" rows={5} value={bulkSteps} onChange={e=>setBulkSteps(e.target.value)} className="w-full bg-white border p-3 text-sm" placeholder={"כל שלב בשורה נפרדת"}/>
+            <button type="button" disabled={!bulkSteps.trim()} onClick={createSteps} className="bg-[#333A31] text-white px-5 py-3 text-sm disabled:opacity-40">{"צור שלבי הכנה"}</button>
           </div>
           <div className="space-y-8">
             {(content.instructions || []).map((step, idx) => (
@@ -376,7 +376,7 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, draft, categorie
         <div className="flex flex-col sm:flex-row gap-4 pt-12 border-t border-[#1C1C1C]/5">
           <button disabled={saving} onClick={async()=>{
             if(saving)return;
-            if(!content.title.trim()||content.ingredients.some(i=>!i.name.trim()||!Number.isFinite(i.amount)||i.amount<0)){alert(L('יש להשלים שם וכמות לכל מצרך ושם מתכון','Completá el título y las cantidades de los ingredientes'));return}
+            if(!content.title.trim()||content.ingredients.some(i=>!i.name.trim()||!Number.isFinite(i.amount)||i.amount<0)){alert('יש להשלים שם וכמות לכל מצרך ושם מתכון');return}
 
             setSaving(true);
             try{await onSave({he:content,image,categoryId:categoryId||'',...(draft?.sourceUrl?{sourceUrl:draft.sourceUrl}:{})})}finally{setSaving(false)}
