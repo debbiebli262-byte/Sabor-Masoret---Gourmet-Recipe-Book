@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Recipe, Language, RecipeContent, Unit } from '../types';
 import { UI_STRINGS, UNITS } from '../constants';
-import { ingredientGroups } from '../services/ingredientGroups';
+import { ingredientGroups, preparationGroups } from '../services/ingredientGroups';
 import { generateRecipeImage } from '../services/geminiService';
 import { printCookbook } from '../services/printCookbook';
 
@@ -77,12 +77,7 @@ const RecipeView: React.FC<Props> = ({ recipe, language, onUpdate, onEdit, onDel
 
   const groupedIngredients = ingredientGroups(content.ingredients || []);
 
-  const groupedInstructions = (content.instructions || []).reduce((acc: any, step) => {
-    const cat = step.category || 'Général';
-    acc[cat] = acc[cat] || [];
-    acc[cat].push(step);
-    return acc;
-  }, {});
+  const groupedInstructions = preparationGroups(content.instructions || []);
 
   return (
     <div id={`recipe-${recipe.id}`} className="recipe-detail max-w-5xl mx-auto bg-white shadow-[0_40px_100px_rgba(0,0,0,0.05)] border-[0.5px] border-[#1C1C1C]/5 mb-16 overflow-hidden animate-in fade-in slide-in-from-bottom-12 duration-1000 will-change-transform">
@@ -217,8 +212,8 @@ const RecipeView: React.FC<Props> = ({ recipe, language, onUpdate, onEdit, onDel
           <div className="lg:col-span-8">
             <h2 className="serif text-lg uppercase tracking-widest text-[#8B7355] mb-6 font-bold italic">{t.instructions}</h2>
             <div className="space-y-6">
-              {Object.entries(groupedInstructions).map(([cat, steps]: [string, any]) => (
-                <div key={cat} className="space-y-4">
+              {groupedInstructions.map(({name:cat,items:steps,start},index) => (
+                <div key={index} className="space-y-4">
                   {!['כללי','General','Général'].includes(cat)&&<div className="flex items-center gap-4 mb-2">
                     <h3 className="text-[9px] font-bold text-[#1C1C1C]/40 uppercase tracking-[0.3em] whitespace-nowrap">{cat}</h3>
                     <div className="w-full h-[0.5px] bg-[#1C1C1C]/5"></div>
@@ -227,7 +222,7 @@ const RecipeView: React.FC<Props> = ({ recipe, language, onUpdate, onEdit, onDel
                     {steps.map((step: any, idx: number) => (
                       <div key={step.id} className="relative group flex gap-4">
                         <span className="serif text-3xl text-[#A68C58] font-light leading-none select-none">
-                          {idx + 1}
+                          {start + idx + 1}
                         </span>
                         <p className="text-base text-[#1C1C1C] leading-relaxed font-light">
                           {step.text}
