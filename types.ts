@@ -1,7 +1,6 @@
 
 export enum Language {
-  HE = 'he',
-  ES = 'es'
+  HE = 'he'
 }
 
 export type Unit = 'gram' | 'kg' | 'tsp' | 'tbsp' | 'cup' | 'pinch' | 'drizzle' | 'units' | 'ml' | 'liters';
@@ -28,7 +27,6 @@ export interface PrepStep {
 }
 
 export interface RecipeContent {
-  sourceLanguage?: 'he'|'es';
   suggestedCategory?: string;
   title: string;
   description: string;
