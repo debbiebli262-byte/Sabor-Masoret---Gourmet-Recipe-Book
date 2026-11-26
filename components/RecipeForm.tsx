@@ -60,7 +60,7 @@ const UnitSelect: React.FC<{
               type="text" 
               autoFocus
               className="w-full bg-[#F5F5F0] p-2 text-[10px] outline-none italic"
-              placeholder={language === Language.HE ? 'חפש...' : 'Buscar…'}
+              placeholder={'חפש...'}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onClick={(e) => e.stopPropagation()}
@@ -85,9 +85,9 @@ const UnitSelect: React.FC<{
 
 const RecipeForm: React.FC<Props> = ({ language, initialRecipe, draft, categories, onSave, onCancel, onAddCategory }) => {
   const t = UI_STRINGS[language];
-  const L=(he:string,sp:string)=>language===Language.ES?sp:he;
+  const L=(he:string,sp:string)=>he;
   const [saving,setSaving]=useState(false);
-  const [sourceChoice,setSourceChoice]=useState<'auto'|'he'|'es'>('auto');
+
   const [content, setContent] = useState<RecipeContent>({
     title: '',
     description: '',
@@ -116,8 +116,8 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, draft, categorie
   useEffect(() => {
     const source=initialRecipe||draft;
     if (source) {
-      const existingContent = source.originalLanguage==='es'&&source.es?source.es:source.he;
-      setSourceChoice(source.originalLanguage||'auto');
+      const existingContent = source.he;
+
       
       if (existingContent) {
         setContent({
@@ -219,8 +219,7 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, draft, categorie
         </h2>
         <div className="w-16 h-[1px] bg-[#8B7355] mx-auto"></div>
       </div>
-      
-      <div className="mb-5 border border-[#D7C8A9] p-4"><label className="block text-sm mb-2">{L('שפת המתכון המקורי','Idioma original de la receta')}</label><select value={sourceChoice} onChange={e=>setSourceChoice(e.target.value as 'auto'|'he'|'es')} className="w-full bg-[#F5F5F0] p-3"><option value="auto">{L('זיהוי אוטומטי','Detectar automáticamente')}</option><option value="he">עברית</option><option value="es">Español</option></select><p className="text-xs mt-2">{L('בשמירה יישמרו המקור והתרגום לשפה השנייה.','Al guardar se conserva el original y se traduce al otro idioma.')}</p></div>
+
       <div className="space-y-16">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
           <div className="space-y-6">
@@ -378,14 +377,11 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, draft, categorie
           <button disabled={saving} onClick={async()=>{
             if(saving)return;
             if(!content.title.trim()||content.ingredients.some(i=>!i.name.trim()||!Number.isFinite(i.amount)||i.amount<0)){alert(L('יש להשלים שם וכמות לכל מצרך ושם מתכון','Completá el título y las cantidades de los ingredientes'));return}
-            const sample=[content.title,content.description,...content.ingredients.map(i=>i.name),...content.instructions.map(i=>i.text)].join(' ');
-            const hebrew=(sample.match(/[א-ת]/g)||[]).length;
-            const latin=(sample.match(/[a-záéíóúüñ]/gi)||[]).length;
-            const original=sourceChoice==='auto'?(hebrew>=latin?'he':'es'):sourceChoice;
+
             setSaving(true);
-            try{await onSave({he:content,...(original==='es'?{es:content}:{}),originalLanguage:original,image,categoryId:categoryId||'',...(draft?.sourceUrl?{sourceUrl:draft.sourceUrl}:{})})}finally{setSaving(false)}
+            try{await onSave({he:content,image,categoryId:categoryId||'',...(draft?.sourceUrl?{sourceUrl:draft.sourceUrl}:{})})}finally{setSaving(false)}
           }} className="flex-1 bg-[#1C1C1C] text-white font-bold py-5 text-xs uppercase tracking-[0.4em] hover:bg-[#8B7355] shadow-2xl transition-all">
-            {saving?L('מתרגם ושומר…','Traduciendo y guardando…'):t.save}
+            {saving?'שומר מתכון…':t.save}
           </button>
           <button onClick={onCancel} className="px-10 py-5 text-[#1C1C1C]/40 font-bold text-[10px] uppercase tracking-widest hover:text-[#1C1C1C] transition-all">
             {t.cancel}
