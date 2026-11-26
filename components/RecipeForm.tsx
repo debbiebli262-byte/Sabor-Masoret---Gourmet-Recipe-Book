@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Recipe, Language, RecipeContent, Ingredient, PrepStep, Unit, Category } from '../types';
 import { UI_STRINGS, UNITS, categoryLabel } from '../constants';
-import { ingredientGroups, normalizeIngredientHeading } from '../services/ingredientGroups';
+import { ingredientGroups, normalizeIngredientHeading, preparationGroups } from '../services/ingredientGroups';
 import { parseIngredientList } from '../services/ingredientParser';
 import { generateRecipeImage } from '../services/geminiService';
 
@@ -155,20 +155,34 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, draft, categorie
   const renameHeading=(ids:string[],name:string)=>setContent(prev=>({...prev,ingredients:prev.ingredients.map(i=>ids.includes(i.id)?{...i,category:normalizeIngredientHeading(name)}:i)}));
   const ingredientSections=ingredientGroups(content.ingredients);
   const [bulkSteps,setBulkSteps]=useState('');
+  const blankStep=(category:string):PrepStep=>({id:crypto.randomUUID(),text:'',category});
   const createSteps=()=>{
     const lines=bulkSteps.split(/\r?\n/).map(x=>x.trim().replace(/^(?:\d+[.)]|[•●▪–*-])\s*/, '')).filter(Boolean);
     if(!lines.length)return;
-    setContent(p=>({...p,instructions:[...p.instructions.filter(x=>x.text.trim()),...lines.map(text=>({id:crypto.randomUUID(),text,category:'General'}))]}));
+    setContent(p=>{
+      const category=normalizeIngredientHeading(p.instructions[p.instructions.length-1]?.category);
+      return {...p,instructions:[...p.instructions.filter(x=>x.text.trim()||normalizeIngredientHeading(x.category)!==category),...lines.map(text=>({...blankStep(category),text}))]};
+    });
     setBulkSteps('');
   };
-  const addStep = () => {
-    const newStep: PrepStep = {
-      id: Math.random().toString(36).substr(2, 9),
-      text: '',
-      category: 'General'
-    };
-    setContent(prev => ({ ...prev, instructions: [...(prev.instructions || []), newStep] }));
+  const addStep=(afterId?:string)=>{
+    setContent(prev=>{
+      const items=[...prev.instructions];
+      const index=afterId?items.findIndex(i=>i.id===afterId):items.length-1;
+      const category=normalizeIngredientHeading(items[index]?.category);
+      items.splice(index+1,0,blankStep(category));
+      return {...prev,instructions:items};
+    });
   };
+  const addPrepHeading=()=>{
+    const name=window.prompt('שם הכותרת, למשל: הכנת הבצק, הכנת המילוי או אפייה')?.trim();
+    if(!name)return;
+    if(normalizeIngredientHeading(name)==='כללי'){alert('בחרי שם אחר לכותרת');return}
+    if(normalizeIngredientHeading(content.instructions[content.instructions.length-1]?.category)===name){alert('כותרת זו כבר נמצאת בסוף הרשימה');return}
+    setContent(prev=>({...prev,instructions:[...prev.instructions,blankStep(name)]}));
+  };
+  const renamePrepHeading=(ids:string[],name:string)=>setContent(prev=>({...prev,instructions:prev.instructions.map(i=>ids.includes(i.id)?{...i,category:normalizeIngredientHeading(name)}:i)}));
+  const prepSections=preparationGroups(content.instructions);
 
   const removeIngredient = (id: string) => {
     setContent(prev => ({ ...prev, ingredients: prev.ingredients.filter(ing => ing.id !== id) }));
@@ -370,17 +384,19 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, draft, categorie
         <section>
           <div className="flex justify-between items-baseline border-b border-[#1C1C1C]/5 pb-3 mb-8">
             <h3 className="serif text-2xl text-[#1C1C1C] italic">{t.instructions}</h3>
-            <button onClick={addStep} className="text-[#8B7355] text-[10px] font-bold uppercase tracking-widest hover:text-[#1C1C1C] transition-colors">+ {t.addStep}</button>
+            <div className="flex flex-wrap justify-end gap-3"><button type="button" onClick={addPrepHeading} className="text-[#8B7355] text-xs font-bold hover:text-[#1C1C1C]">+ הוספת כותרת</button><button type="button" onClick={()=>addStep()} className="text-[#8B7355] text-xs font-bold hover:text-[#1C1C1C]">+ {t.addStep}</button></div>
           </div>
           <div className="bg-[#FAF9F6] border border-[#8B7355]/20 p-4 mb-6 space-y-3">
             <label htmlFor="bulk-steps" className="block font-medium text-sm">{"הדבקה מהירה של הוראות הכנה"}</label>
-            <textarea id="bulk-steps" rows={5} value={bulkSteps} onChange={e=>setBulkSteps(e.target.value)} className="w-full bg-white border p-3 text-sm" placeholder={"כל שלב בשורה נפרדת"}/>
+            <p className="text-xs text-[#6B6255]">כל שלב בשורה נפרדת. השלבים יתווספו לקבוצה האחרונה.</p><textarea id="bulk-steps" rows={5} value={bulkSteps} onChange={e=>setBulkSteps(e.target.value)} className="w-full bg-white border p-3 text-sm" placeholder={"כל שלב בשורה נפרדת"}/>
             <button type="button" disabled={!bulkSteps.trim()} onClick={createSteps} className="bg-[#333A31] text-white px-5 py-3 text-sm disabled:opacity-40">{"צור שלבי הכנה"}</button>
           </div>
           <div className="space-y-8">
-            {(content.instructions || []).map((step, idx) => (
+            {prepSections.map((section,index)=><div key={section.items[0].id} className="space-y-4">
+              {section.name!=='כללי'&&<div className="flex items-center gap-2 bg-[#F5F5F0] border-b border-[#D7C8A9] px-3 py-2"><input aria-label="שם כותרת אופן ההכנה" key={section.name} defaultValue={section.name} onBlur={e=>renamePrepHeading(section.items.map(i=>i.id),e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();e.currentTarget.blur()}}} className="flex-1 min-w-0 bg-transparent text-sm font-bold text-[#806A47] p-2"/><button type="button" className="text-xs text-[#98594B] px-2" onClick={()=>renamePrepHeading(section.items.map(i=>i.id),prepSections[index-1]?.name||'כללי')}>הסר כותרת</button></div>}
+              {section.items.map((step, idx) => (
               <div key={step.id} className="flex gap-6 items-start animate-in fade-in duration-300">
-                <span className="serif text-4xl text-[#F5F5F0] italic">{idx + 1}</span>
+                <span className="serif text-3xl text-[#A68C58] italic">{section.start + idx + 1}</span>
                 <div className="flex-1 space-y-3">
                   <textarea className="w-full bg-[#F5F5F0] p-5 text-sm outline-none focus:ring-1 focus:ring-[#8B7355] min-h-[80px] focus:bg-white transition-colors" placeholder={t.instructions} value={step.text} onChange={e => updateStep(step.id, 'text', e.target.value)} />
                   <div className="flex justify-between items-center">
@@ -390,6 +406,8 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, draft, categorie
                 </div>
               </div>
             ))}
+              {section.name!=='כללי'&&<button type="button" onClick={()=>addStep(section.items[section.items.length-1].id)} className="text-xs text-[#806A47] px-2 py-2">+ הוסף שלב לקבוצה</button>}
+            </div>)}
           </div>
         </section>
 
@@ -397,6 +415,7 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, draft, categorie
         <div className="flex flex-col sm:flex-row gap-4 pt-12 border-t border-[#1C1C1C]/5">
           <button disabled={saving} onClick={async()=>{
             if(saving)return;
+            if(content.instructions.some(step=>!step.text.trim())){alert('יש להשלים את הוראות ההכנה או להסיר שלבים ריקים');return}
             if(!content.title.trim()||content.ingredients.some(i=>!i.name.trim()||!Number.isFinite(i.amount)||i.amount<0)){alert('יש להשלים שם וכמות לכל מצרך ושם מתכון');return}
 
             setSaving(true);
