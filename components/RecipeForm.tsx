@@ -192,11 +192,16 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, draft, categorie
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setImage(reader.result as string);
-      reader.readAsDataURL(file);
+    if (!file) return;
+    if (file.size > 450000) {
+      alert('התמונה גדולה מדי. הגודל המרבי להעלאה הוא 450 KB. מומלץ להשתמש בתמונת JPG מוקטנת.');
+      e.target.value = '';
+      return;
     }
+    const reader = new FileReader();
+    reader.onloadend = () => setImage(reader.result as string);
+    reader.onerror = () => alert('לא ניתן לקרוא את התמונה.');
+    reader.readAsDataURL(file);
   };
 
   const handleQuickAddCategory = async () => {
@@ -313,9 +318,10 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, draft, categorie
                   </button>
                   <label className="flex-1 bg-white text-[#1C1C1C] text-[9px] font-bold uppercase py-3 tracking-widest border border-[#1C1C1C]/10 text-center cursor-pointer hover:bg-[#F5F5F0] flex items-center justify-center gap-2">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg> {t.uploadImage}
-                    <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+                    <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" aria-describedby="recipe-image-limit" />
                   </label>
                 </div>
+                <p id="recipe-image-limit" className="text-sm text-[#806A47] leading-relaxed">גודל תמונה מרבי להעלאה: <strong>450 KB</strong>. מומלץ להשתמש בקובץ JPG בגודל של עד 300 KB.</p>
                 {image && <img src={image} className="w-full aspect-video object-cover grayscale-[0.2] border border-[#1C1C1C]/5 shadow-inner" alt="Preview" />}
              </div>
           </div>
