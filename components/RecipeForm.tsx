@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Recipe, Language, RecipeContent, Ingredient, PrepStep, Unit, Category } from '../types';
 import { UI_STRINGS, UNITS, categoryLabel } from '../constants';
+import { ingredientGroups, normalizeIngredientHeading } from '../services/ingredientGroups';
 import { parseIngredientList } from '../services/ingredientParser';
 import { generateRecipeImage } from '../services/geminiService';
 
@@ -102,7 +103,7 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, draft, categorie
   const [bulkMessage,setBulkMessage] = useState('');
   const createIngredients = () => {
     const {ingredients,unparsed} = parseIngredientList(bulkIngredients);
-    if (ingredients.length) setContent(prev=>({...prev,ingredients:[...prev.ingredients.filter(i=>i.name.trim()),...ingredients]}));
+    if (ingredients.length) setContent(prev=>{const category=normalizeIngredientHeading(prev.ingredients[prev.ingredients.length-1]?.category);return {...prev,ingredients:[...prev.ingredients.filter(i=>i.name.trim()||normalizeIngredientHeading(i.category)!==category),...ingredients.map(i=>({...i,category}))]}});
     setBulkIngredients(unparsed.join('\n'));
     setBulkMessage('נוספו '+ingredients.length+' מצרכים.'+(unparsed.length?' '+unparsed.length+' שורות לא זוהו; השלימי כמות ויחידה או הוסיפי ידנית.':''));
   };
@@ -132,17 +133,27 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, draft, categorie
     }
   }, [initialRecipe,draft]);
 
-  const addIngredient = () => {
-    const newIng: Ingredient = {
-      id: Math.random().toString(36).substr(2, 9),
-      name: '',
-      amount: 1,
-      unit: 'gram',
-      category: t.ingredientCategories[0]
-    };
-    setContent(prev => ({ ...prev, ingredients: [...(prev.ingredients || []), newIng] }));
+  const blankIngredient=(category:string):Ingredient=>({id:crypto.randomUUID(),name:'',amount:1,unit:'gram',category});
+  const addIngredient = (afterId?:string) => {
+    setContent(prev=>{
+      const items=[...prev.ingredients];
+      const index=afterId?items.findIndex(i=>i.id===afterId):items.length-1;
+      const category=normalizeIngredientHeading(items[index]?.category);
+      items.splice(index+1,0,blankIngredient(category));
+      return {...prev,ingredients:items};
+    });
   };
-
+  const addHeading=()=>{
+    const name=window.prompt('שם הכותרת, למשל: לבצק, למילוי או לרוטב')?.trim();
+    if(!name)return;
+    if(normalizeIngredientHeading(name)==='כללי'){alert('בחרי שם ייחודי לכותרת');return}
+    setContent(prev=>{
+      if(normalizeIngredientHeading(prev.ingredients[prev.ingredients.length-1]?.category)===name){alert('כותרת זו כבר נמצאת בסוף הרשימה');return prev}
+      return {...prev,ingredients:[...prev.ingredients,blankIngredient(name)]};
+    });
+  };
+  const renameHeading=(ids:string[],name:string)=>setContent(prev=>({...prev,ingredients:prev.ingredients.map(i=>ids.includes(i.id)?{...i,category:normalizeIngredientHeading(name)}:i)}));
+  const ingredientSections=ingredientGroups(content.ingredients);
   const [bulkSteps,setBulkSteps]=useState('');
   const createSteps=()=>{
     const lines=bulkSteps.split(/\r?\n/).map(x=>x.trim().replace(/^(?:\d+[.)]|[•●▪–*-])\s*/, '')).filter(Boolean);
@@ -330,17 +341,19 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, draft, categorie
         <section>
           <div className="flex justify-between items-baseline border-b border-[#1C1C1C]/5 pb-3 mb-8">
             <h3 className="serif text-2xl text-[#1C1C1C] italic">{t.ingredients}</h3>
-            <button onClick={addIngredient} className="text-[#8B7355] text-[10px] font-bold uppercase tracking-widest hover:text-[#1C1C1C] transition-colors">+ {t.addIngredient}</button>
+            <div className="flex flex-wrap justify-end gap-3"><button type="button" onClick={addHeading} className="text-[#8B7355] text-xs font-bold hover:text-[#1C1C1C]">+ הוספת כותרת</button><button type="button" onClick={()=>addIngredient()} className="text-[#8B7355] text-xs font-bold hover:text-[#1C1C1C]">+ {t.addIngredient}</button></div>
           </div>
           <div className="bg-[#FAF9F6] border border-[#8B7355]/20 p-4 mb-6 space-y-3">
             <label htmlFor="bulk-ingredients" className="block font-medium text-sm">{"הדבקה מהירה של מצרכים"}</label>
-            <p className="text-xs text-[#6B6255]">מצרך אחד בכל שורה, למשל 250 גרם קמח או קמח 250 גרם. הרשימה תתווסף למצרכים הקיימים.</p>
+            <p className="text-xs text-[#6B6255]">מצרך אחד בכל שורה, למשל 250 גרם קמח או קמח 250 גרם. הרשימה תתווסף לקבוצת המצרכים האחרונה.</p>
             <textarea id="bulk-ingredients" rows={5} className="w-full bg-white border border-[#8B7355]/20 p-3 text-sm outline-none" value={bulkIngredients} onChange={e=>{setBulkIngredients(e.target.value);setBulkMessage('')}} placeholder={'250 גרם קמח\n100 גרם סוכר\n2 ביצים\nחצי כפית מלח'}/>
             <button type="button" disabled={!bulkIngredients.trim()} onClick={createIngredients} className="bg-[#333A31] text-white px-5 py-3 text-sm disabled:opacity-40">{"צור רשימת מצרכים"}</button>
             {bulkMessage && <p role="status" className="text-sm">{bulkMessage}</p>}
           </div>
           <div className="space-y-3">
-            {(content.ingredients || []).map(ing => (
+            {ingredientSections.map((section,index)=><div key={section.items[0].id} className="space-y-3">
+              {section.name!=='כללי'&&<div className="flex items-center gap-2 bg-[#F5F5F0] border-b border-[#D7C8A9] px-3 py-2 mt-4"><input aria-label="שם כותרת המצרכים" key={section.name} defaultValue={section.name} onBlur={e=>renameHeading(section.items.map(i=>i.id),e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();e.currentTarget.blur()}}} className="flex-1 min-w-0 bg-transparent text-sm font-bold text-[#806A47] p-2"/><button type="button" className="text-xs text-[#98594B] px-2" onClick={()=>renameHeading(section.items.map(i=>i.id),ingredientSections[index-1]?.name||'כללי')}>הסר כותרת</button></div>}
+              {section.items.map(ing => (
               <div key={ing.id} className="ingredient-row grid grid-cols-12 gap-3 items-center animate-in fade-in duration-300">
                 <input className="ingredient-name col-span-7 min-w-0 bg-[#F5F5F0] p-3 text-xs outline-none focus:bg-white transition-colors" placeholder={t.ingredients} value={ing.name} onChange={e => updateIngredient(ing.id, 'name', e.target.value)} />
                 <input type="number" inputMode="decimal" min="0" step="any" className="ingredient-amount col-span-2 min-w-0 bg-[#F5F5F0] p-3 text-xs outline-none text-center focus:bg-white transition-colors" value={Number.isFinite(ing.amount)?ing.amount:""} onChange={e => updateIngredient(ing.id, 'amount', e.target.valueAsNumber)} />
@@ -349,6 +362,8 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, draft, categorie
                 <button onClick={() => removeIngredient(ing.id)} className="ingredient-delete col-span-1 text-red-300 hover:text-red-600 transition-colors flex justify-center"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
               </div>
             ))}
+              {section.name!=='כללי'&&<button type="button" onClick={()=>addIngredient(section.items[section.items.length-1].id)} className="text-xs text-[#806A47] px-2 py-2">+ הוסף מצרך לקבוצה</button>}
+            </div>)}
           </div>
         </section>
 
