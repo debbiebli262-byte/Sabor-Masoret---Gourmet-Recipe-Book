@@ -75,7 +75,14 @@ export function printCookbook(recipes: Recipe[], categories: Category[], book = 
 .recipe .ingredient strong{white-space:normal;text-align:left;flex-shrink:0}
 .recipe .step{margin-bottom:1.5mm;gap:2mm}
 .recipe .recipe-footer{margin-top:2mm;padding-top:1mm}
-.recipe.tight{font-size:10pt;line-height:1.35}
+.recipe.tight{font-size:10pt;line-height:1.3}
+.recipe.tight .recipe-body{display:grid;grid-template-columns:minmax(0, 36%) minmax(0, 1fr);gap:5mm;align-items:start}
+.recipe.tight .ingredient-columns{column-count:1}
+.recipe.tight .recipe-body h2{font-size:15pt}
+.recipe.tight .ingredients{margin-bottom:0}
+.recipe.tight .step b{font-size:10pt;min-width:4mm}
+.recipe.tight.continuation .recipe-body{display:block}
+.recipe.tight.continuation .ingredient-columns{column-count:var(--ingredient-cols,1)}
 .recipe.tight .step{margin-bottom:.8mm}
 .recipe.tight .ingredient{padding:.2mm 0}
 .recipe.tight .recipe-body h3{margin:1mm 0}
@@ -91,6 +98,12 @@ export function printCookbook(recipes: Recipe[], categories: Category[], book = 
  .ingredients.oversize,.directions.oversize{break-inside:auto;page-break-inside:auto}
  .step,.ingredient{break-inside:avoid;page-break-inside:avoid}
  .step b{break-after:avoid}
+ .recipe.one-page{break-inside:avoid;page-break-inside:avoid}
+ .recipe.one-page .ingredients,.recipe.one-page .directions,.recipe.one-page .step-group{break-inside:auto;page-break-inside:auto}
+ .recipe.continuation .step-group{break-inside:auto;page-break-inside:auto}
+ .recipe .ingredient-group{max-width:100%}
+ .recipe .ingredient strong{max-width:48%}
+ .recipe .ingredient span{min-width:0;overflow-wrap:anywhere}
 }
 `;
   w.document.write('<!doctype html><html lang="'+'he'+'" dir="'+'rtl'+'"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(book?'Sabor & Masoret':ordered[0].he.title)+'</title><style>'+css+'</style></head><body><div class="toolbar"><button id="print">'+"הדפסה / שמירה כ-PDF"+'</button><label><input type="checkbox" id="photos" '+(photos?'checked':'')+'> '+"תמונות"+'</label><button id="close">'+"סגירה"+'</button></div><main>'+cover+pages+'</main></body></html>');
@@ -101,7 +114,7 @@ export function printCookbook(recipes: Recipe[], categories: Category[], book = 
     const pageHeightMm=options.paper==='A5'?179:266;
     const available=(pageHeightMm-5)*96/25.4;
     w.document.querySelectorAll<HTMLElement>('.recipe').forEach(el=>{
-      el.classList.remove('tight');
+      el.classList.remove('tight','one-page','continuation');
       const ing=el.querySelector<HTMLElement>('.ingredients');
       const directions=el.querySelector<HTMLElement>('.directions');
       const pic=el.querySelector<HTMLElement>('.hero-photo');
@@ -122,7 +135,8 @@ export function printCookbook(recipes: Recipe[], categories: Category[], book = 
       };
       fitPhoto();
       if(height()>available){el.classList.add('tight');fitPhoto();}
-      [ing,directions].forEach(x=>{if(x&&x.getBoundingClientRect().height>available)x.classList.add('oversize');});
+      if(height()<=available)el.classList.add('one-page');
+      else {el.classList.add('continuation'); [ing,directions].forEach(x=>x?.classList.add('oversize'));}
     });
   };
   w.addEventListener('beforeprint',preparePagination);
