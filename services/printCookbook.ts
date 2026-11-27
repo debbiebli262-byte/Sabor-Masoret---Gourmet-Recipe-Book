@@ -16,7 +16,7 @@ function groups<T>(items:T[], get:(x:T)=>string) {
 }
 export function printCookbook(recipes: Recipe[], categories: Category[], book = true, scale = 1, options:Options = {}) {
   const ordered=recipes.filter(r=>r.he?.title).slice().sort((a,b)=>cat(a).localeCompare(cat(b),'he')||a.he.title.localeCompare(b.he.title,'he'));
-  function cat(r:Recipe){return categories.find(c=>c.id===r.categoryId)?.he || r.he.suggestedCategory || 'ללא קטגוריה';}
+  function cat(r:Recipe){return categories.find(c=>c.id===r.categoryId)?.he || r.he.suggestedCategory || '';}
   if(!ordered.length){alert('אין מתכונים להדפסה');return;}
   const w=window.open('','_blank'); if(!w){alert('יש לאפשר פתיחת חלונות קופצים לצורך הדפסה');return;}
   w.opener=null;
@@ -24,7 +24,7 @@ export function printCookbook(recipes: Recipe[], categories: Category[], book = 
   const photos=options.photos!==false;
 
   const unitLabel=(u:string)=>UNITS[u]?.[Language.HE]||u;
-  const brand='<div class="brand" dir="ltr">SABOR <i>&amp;</i> MASORET</div>';
+  const brand='<div class="brand" dir="ltr">Sabor <i>&amp;</i> Masoret</div>';
   const toc=sections.map((g,j)=>'<div class="toc-group"><div class="toc-heading"><span>'+number(j+1)+'</span><h2>'+esc(g.name)+'</h2></div>'+g.items.map(r=>'<a class="toc-row" href="#recipe-'+ordered.indexOf(r)+'"><span>'+esc(r.he.title)+'</span><span class="dots"></span><span class="index">'+number(ordered.indexOf(r)+1)+'</span></a>').join('')+'</div>').join('');
   const renderRecipe=(r:Recipe)=>{
     const c=r.he;
@@ -34,13 +34,13 @@ export function printCookbook(recipes: Recipe[], categories: Category[], book = 
     const ing=groups(c.ingredients||[],i=>normalizeIngredientHeading(i.category)).map(g=>'<div class="ingredient-group">'+(!['כללי','General','Général'].includes(g.name)?'<h3>'+esc(g.name)+'</h3>':'')+g.items.map(i=>'<div class="ingredient"><span>'+esc(i.name)+'</span><strong>'+esc(Math.round(i.amount*scale*100)/100)+' <small>'+esc(unitLabel(i.unit))+'</small></strong></div>').join('')+'</div>').join('');
     let step=0;
     const steps=groups(c.instructions||[],i=>normalizeIngredientHeading(i.category)).map(g=>'<div class="step-group">'+(!['כללי','General','Général'].includes(g.name)?'<h3>'+esc(g.name)+'</h3>':'')+g.items.map(i=>'<div class="step"><b>'+number(++step)+'</b><p>'+esc(i.text)+'</p></div>').join('')+'</div>').join('');
-    const facts=[['מנות',meta.servings?String(Math.round(meta.servings*scale*100)/100):scale!==1?'× '+scale:''],['הכנה',meta.prepTime],['בישול',meta.cookTime],['קושי',meta.difficulty],['תבנית',meta.panSize]].filter(x=>x[1]);
+    const facts=[['מנות',meta.servings?String(Math.round(meta.servings*scale*100)/100):''],['הכנה',meta.prepTime],['בישול',meta.cookTime],['קטגוריה',cat(r)]].filter(x=>x[1]);
     const notes=[['הוראות תנור',c.ovenInstructions],['הערות השף',c.notes],['אחסון והקפאה',meta.storage]].filter(x=>x[1]).map(x=>'<aside class="note"><h3>'+esc(x[0])+'</h3><p>'+esc(x[1])+'</p></aside>').join('');
     const source=r.sourceUrl&&/^https?:\/\//i.test(r.sourceUrl)?'<a href="'+esc(r.sourceUrl)+'">'+"למקור המתכון"+'</a>':'';
-    return '<article class="recipe sheet" id="recipe-'+index+'"><div class="running">'+brand+'<span>'+esc(cat(r))+(book?' / '+number(index+1):'')+'</span></div><header class="recipe-head"><div class="eyebrow">'+'מתוך המטבח שלנו'+'</div><h1>'+esc(c.title)+'</h1><div class="rule">'+ornament+'</div>'+(c.description?'<p class="intro">'+esc(c.description)+'</p>':'')+'</header>'+pic+(facts.length?'<div class="facts">'+facts.map(x=>'<div><small>'+esc(x[0])+'</small><b>'+esc(x[1])+'</b></div>').join('')+'</div>':'')+'<div class="recipe-body"><section class="ingredients"><h2><span>01</span> '+'מצרכים'+'</h2>'+ing+'</section><section class="directions"><h2><span>02</span> '+'אופן ההכנה'+'</h2>'+steps+'</section></div>'+ (notes?'<div class="notes">'+notes+'</div>':'')+(source||meta.credit?'<div class="credit">'+esc(meta.credit)+' '+source+'</div>':'')+'<footer class="recipe-footer">'+ornament+'<span>'+"בתיאבון • Buen provecho"+'</span></footer></article>';
+    return '<article class="recipe sheet" id="recipe-'+index+'"><div class="running">'+brand+'</div><header class="recipe-head"><h1>'+esc(c.title)+'</h1><div class="rule">'+ornament+'</div>'+(c.description?'<p class="intro">'+esc(c.description)+'</p>':'')+'</header>'+pic+(facts.length?'<div class="facts">'+facts.map(x=>'<div><small>'+esc(x[0])+'</small><b>'+esc(x[1])+'</b></div>').join('')+'</div>':'')+'<div class="recipe-body"><section class="ingredients"><h2><span>01</span> '+'מצרכים'+'</h2><div class="ingredient-columns">'+ing+'</div></section><section class="directions"><h2><span>02</span> '+'אופן ההכנה'+'</h2>'+steps+'</section></div>'+ (notes?'<div class="notes">'+notes+'</div>':'')+(source||meta.credit?'<div class="credit">'+esc(meta.credit)+' '+source+'</div>':'')+'<footer class="recipe-footer">'+ornament+'</footer></article>';
   };
   const cover=book?'<section class="cover sheet"><div class="cover-frame"><div class="eyebrow" dir="ltr">THE FAMILY COLLECTION</div>'+ornament+'<div class="cover-title" dir="ltr">SABOR<br><i>&amp;</i><br>MASORET</div><div class="cover-sub">'+"טעם ומסורת"+'</div><div class="cover-line"></div><p>'+"ספר המתכונים המשפחתי"+'</p><div class="cover-gallery">'+ordered.filter(r=>photo(r,photos,'')).slice(0,3).map(r=>photo(r,photos,'cover-photo')).join('')+'</div><div class="edition" dir="ltr">L’ART DE LA CUISINE</div><small>'+ordered.length+''+" מתכונים"+' · '+sections.length+''+" פרקים"+'</small></div></section><section class="contents sheet"><div class="running">'+brand+'<span>INDEX</span></div><div class="eyebrow">'+"המתכונים שלנו"+'</div><h1>'+"תוכן עניינים"+'</h1><div class="rule">'+ornament+'</div><p class="toc-note">'+"המספרים מציינים את סדר המתכונים בספר."+'</p>'+toc+'</section>':'';
-  const pages=sections.map((g,j)=>(book?'<section class="chapter sheet"><div class="running">'+brand+'<span>CHAPTER '+number(j+1)+'</span></div><div class="chapter-center"><div class="chapter-no">'+number(j+1)+'</div>'+ornament+'<div class="eyebrow">'+"פרק "+''+(j+1)+'</div><h1>'+esc(g.name)+'</h1><div class="rule"></div><p>'+g.items.length+''+" מתכונים"+'</p>'+photo(g.items.find(r=>photo(r,photos,'')),photos,'chapter-photo')+'</div></section>':'')+g.items.map(renderRecipe).join('')).join('');
+  const pages=sections.map((g,j)=>(book?'<section class="chapter sheet"><div class="running">'+brand+'<span>CHAPTER '+number(j+1)+'</span></div><div class="chapter-center"><div class="chapter-no">'+number(j+1)+'</div>'+ornament+'<div class="eyebrow">'+"פרק "+''+(j+1)+'</div><h1>'+esc(g.name)+'</h1><div class="rule"></div><p>'+g.items.length+''+" מתכונים"+'</p>'+'</div></section>':'')+g.items.map(renderRecipe).join('')).join('');
   const css=`
 @import url('https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;1,500&display=swap');
 @page{size:${options.paper==='A5'?'A5':'A4'};margin:14mm 15mm 17mm;@bottom-center{content:counter(page);font:9pt Georgia;color:#77684f}}
@@ -60,6 +60,28 @@ export function printCookbook(recipes: Recipe[], categories: Category[], book = 
 .directions.compact .step{margin-bottom:1.6mm;line-height:1.45}
 .directions.compact h3{margin-top:1.5mm}
 .directions.compact h2{margin:2mm 0}
+.recipe{background:#faf6eb;color:#302e27}
+.recipe .running{justify-content:center;margin-bottom:3mm;padding-bottom:2mm}
+.recipe .brand{font-size:12pt;letter-spacing:.06em}
+.recipe-head h1{color:#39452d;font-size:29pt;margin:1mm 0}
+.recipe .rule{margin:1.5mm auto}
+.recipe .intro{margin-bottom:2mm}
+.recipe .hero-photo{height:var(--hero-height,48mm);margin:2mm 0 3mm}
+.recipe .facts{margin:2mm 0;padding:1mm 0}
+.recipe .recipe-body h2{color:#8b713f;margin:2mm 0;padding-bottom:1mm;font-size:17pt}
+.recipe .ingredient-columns{column-count:var(--ingredient-cols,1);column-gap:6mm;direction:rtl}
+.recipe .ingredient-group{break-inside:avoid;display:inline-block;width:100%;margin-bottom:1mm}
+.recipe .ingredient{padding:.55mm 0;gap:2mm}
+.recipe .ingredient strong{white-space:normal;text-align:left;flex-shrink:0}
+.recipe .step{margin-bottom:1.5mm;gap:2mm}
+.recipe .recipe-footer{margin-top:2mm;padding-top:1mm}
+.recipe.tight{font-size:10pt;line-height:1.35}
+.recipe.tight .step{margin-bottom:.8mm}
+.recipe.tight .ingredient{padding:.2mm 0}
+.recipe.tight .recipe-body h3{margin:1mm 0}
+.recipe.tight .notes,.recipe.tight .note{margin-top:1mm}
+.recipe .ingredient-group.allow-split{display:block;break-inside:auto}
+.recipe .ingredient-group.allow-split h3{break-after:avoid}
 @media print{
  html{background:white}.toolbar{display:none!important}
  .sheet{margin:0;padding:0;max-width:none;box-shadow:none}
@@ -77,23 +99,40 @@ export function printCookbook(recipes: Recipe[], categories: Category[], book = 
   // Measure whole sections before printing; tighten only sections that exceed a full page.
   const preparePagination=()=>{
     const pageHeightMm=options.paper==='A5'?179:266;
-    // Reserve a small safety margin for borders and browser rounding.
-    const available=(pageHeightMm-4)*96/25.4;
-    const blocks=w.document.querySelectorAll<HTMLElement>('.recipe-body > .ingredients,.recipe-body > .directions');
-    blocks.forEach(el=>{
-      el.classList.remove('compact','dense','oversize');
-      const height=()=>{const style=w.getComputedStyle(el);return el.getBoundingClientRect().height+(parseFloat(style.marginTop)||0)+(parseFloat(style.marginBottom)||0)};
-      if(height()>available)el.classList.add('compact');
-      if(height()>available&&el.classList.contains('ingredients'))el.classList.add('dense');
-      if(height()>available)el.classList.add('oversize');
+    const available=(pageHeightMm-5)*96/25.4;
+    w.document.querySelectorAll<HTMLElement>('.recipe').forEach(el=>{
+      el.classList.remove('tight');
+      const ing=el.querySelector<HTMLElement>('.ingredients');
+      const directions=el.querySelector<HTMLElement>('.directions');
+      const pic=el.querySelector<HTMLElement>('.hero-photo');
+      [ing,directions].forEach(x=>x?.classList.remove('oversize','compact','dense'));
+      const count=el.querySelectorAll('.ingredient').length;
+      el.style.setProperty('--ingredient-cols',count>=9&&options.paper!=='A5'?'2':'1');
+      const height=()=>Array.from(el.children).reduce((sum,node)=>{
+        const x=node as HTMLElement, st=w.getComputedStyle(x);
+        return sum+(st.display==='none'?0:x.getBoundingClientRect().height+(parseFloat(st.marginTop)||0)+(parseFloat(st.marginBottom)||0));
+      },0);
+      const max=options.paper==='A5'?42:57;
+      const min=options.paper==='A5'?20:24;
+      const fitPhoto=()=>{
+        if(!pic||w.getComputedStyle(pic).display==='none')return;
+        el.style.setProperty('--hero-height',min+'mm');
+        const spare=(available-height())*25.4/96;
+        el.style.setProperty('--hero-height',Math.max(min,Math.min(max,min+spare))+'mm');
+      };
+      fitPhoto();
+      if(height()>available){el.classList.add('tight');fitPhoto();}
+      [ing,directions].forEach(x=>{if(x&&x.getBoundingClientRect().height>available)x.classList.add('oversize');});
     });
   };
   w.addEventListener('beforeprint',preparePagination);
+  void w.document.fonts.ready.then(preparePagination);
+  preparePagination();
   w.document.getElementById('print')?.addEventListener('click',async()=>{
     try{await w.document.fonts.ready}catch{}
     preparePagination();
     w.print();
   });
   w.document.getElementById('close')?.addEventListener('click',()=>w.close());
-  w.document.getElementById('photos')?.addEventListener('change',e=>w.document.body.classList.toggle('no-photos',!(e.target as HTMLInputElement).checked));
+  w.document.getElementById('photos')?.addEventListener('change',e=>{w.document.body.classList.toggle('no-photos',!(e.target as HTMLInputElement).checked);preparePagination();});
 }
