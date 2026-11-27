@@ -25,7 +25,7 @@ const RecipeView: React.FC<Props> = ({ recipe, language, onUpdate, onEdit, onDel
   const [minutes,setMinutes]=useState(5);
   const [deadline,setDeadline]=useState(0);
   const [remaining,setRemaining]=useState(0);
-  const content = recipe.he;
+  const content = recipe.he ? {...recipe.he,ingredients:(recipe.he.ingredients||[]).map(i=>i.unit==='gram' && i.amount>=1000 ? {...i,amount:i.amount/1000,unit:'kg' as Unit}:i)} : recipe.he;
   useEffect(()=>{setCooking(false);setChecked([]);setStepIndex(0);setDeadline(0);setRemaining(0)},[recipe.id,language]);
   useEffect(()=>{if(!deadline)return;const tick=()=>{const left=Math.max(0,Math.ceil((deadline-Date.now())/1000));setRemaining(left);if(!left)setDeadline(0)};tick();const id=window.setInterval(tick,250);return()=>clearInterval(id)},[deadline]);
   useEffect(()=>{if(!cooking)return;let lock:any;let active=true;const acquire=async()=>{try{if(document.visibilityState==='visible'){const next=await (navigator as any).wakeLock?.request('screen');if(active)lock=next;else await next?.release()}}catch{}};acquire();document.addEventListener('visibilitychange',acquire);return()=>{active=false;document.removeEventListener('visibilitychange',acquire);lock?.release().catch(()=>{})}},[cooking]);
@@ -133,7 +133,7 @@ const RecipeView: React.FC<Props> = ({ recipe, language, onUpdate, onEdit, onDel
         <div className="absolute top-3 right-3 md:top-6 md:right-6 z-30 print:hidden">
           <button
             type="button"
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); printCookbook([recipe], [], false, scale); }}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); printCookbook([{...recipe,he:content}], [], false, scale); }}
             className="bg-[#1C1C1C] text-white px-6 py-3 text-[10px] font-bold uppercase tracking-[0.3em] hover:bg-[#8B7355] transition-all shadow-xl flex items-center gap-2 active:scale-95"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
