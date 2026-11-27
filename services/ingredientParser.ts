@@ -53,7 +53,7 @@ export function parseIngredientList(input:string):{ingredients:Ingredient[];unpa
     }
     if(!measure||!name||/^\d/.test(name)||/^(?:[-–—]|עד\s+\d)/.test(name)){unparsed.push(original);continue;}
     let {amount,unit}=measure;
-    if(unit==='kg'){amount*=1000;unit='gram';}
+    if(unit==='gram' && amount>=1000){amount/=1000;unit='kg';}
     if(unit==='liters'){amount*=1000;unit='ml';}
     ingredients.push({id:crypto.randomUUID(),name,amount,unit,category:'כללי'});
   }
