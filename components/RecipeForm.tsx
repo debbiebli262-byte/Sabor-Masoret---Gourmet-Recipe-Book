@@ -36,7 +36,7 @@ const UnitSelect: React.FC<{
   }, []);
 
   const options = Object.entries(UNITS).filter(([key, val]) => 
-    val[language].toLowerCase().includes(search.toLowerCase()) || 
+    val[language].replace(/["״׳']/g,'').toLowerCase().includes(search.replace(/["״׳']/g,'').toLowerCase()) || (key==='kg' && 'קילוגרם קילו'.includes(search.trim())) || 
     key.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -123,7 +123,7 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, draft, categorie
       if (existingContent) {
         setContent({
           ...existingContent,
-          ingredients: existingContent.ingredients || [],
+          ingredients: (existingContent.ingredients || []).map(i=>i.unit==='gram' && i.amount>=1000 ? {...i,amount:i.amount/1000,unit:'kg' as Unit}:i),
           instructions: existingContent.instructions || []
         });
       }
@@ -195,7 +195,7 @@ const RecipeForm: React.FC<Props> = ({ language, initialRecipe, draft, categorie
   const updateIngredient = (id: string, field: keyof Ingredient, value: any) => {
     setContent(prev => ({
       ...prev,
-      ingredients: (prev.ingredients || []).map(ing => ing.id === id ? { ...ing, [field]: value } : ing)
+      ingredients: (prev.ingredients || []).map(ing => ing.id === id ? (field==='unit' && ing.unit==='gram' && value==='kg' ? {...ing,unit:'kg',amount:ing.amount/1000} : field==='unit' && ing.unit==='kg' && value==='gram' ? {...ing,unit:'gram',amount:ing.amount*1000} : { ...ing, [field]: value }) : ing)
     }));
   };
 
